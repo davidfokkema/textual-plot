@@ -39,6 +39,9 @@ class PlotWidget(Widget):
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
+        self.clear()
+
+    def clear(self) -> None:
         self._datasets = []
 
     def plot(self, x: ArrayLike, y: ArrayLike) -> None:
@@ -109,18 +112,24 @@ class PlotWidget(Widget):
 
 
 class DemoApp(App[None]):
+    _phi = 0
+
     def compose(self) -> ComposeResult:
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        self.set_interval(1 / 600, self.plot_refresh)
-        plot = self.query_one(PlotWidget)
-        plot.scatter(x=[0, 1, 2, 3, 4, 5], y=[0, 1, 4, 9, 16, 25], marker_style="blue")
-        x = np.linspace(0, 10, 51)
-        plot.scatter(x=x, y=10 + 10 * np.sin(x), marker="x", marker_style="red3")
+        self.set_interval(1 / 60, self.plot_refresh)
 
     def plot_refresh(self) -> None:
-        self.query_one(PlotWidget).refresh()
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+        plot.scatter(x=[0, 1, 2, 3, 4, 5], y=[0, 1, 4, 9, 16, 25], marker_style="blue")
+        x = np.linspace(0, 10, 1001)
+        plot.scatter(
+            x=x, y=10 + 10 * np.sin(x + self._phi), marker="█", marker_style="red3"
+        )
+        plot.refresh()
+        self._phi += 0.1
 
 
 if __name__ == "__main__":
