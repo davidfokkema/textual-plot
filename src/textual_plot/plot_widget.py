@@ -189,10 +189,8 @@ class DemoApp(App[None]):
         plot.clear()
         plot.scatter(x=[0, 1, 2, 3, 4, 5], y=[0, 1, 4, 9, 16, 25], marker_style="blue")
         x = np.linspace(0, 10, 51)
-        # plot.scatter(
-        #     x=x, y=10 + 10 * np.sin(x + self._phi), marker="█", marker_style="red3"
-        # )
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
+        plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
 
         plot.refresh()
         self._phi += 0.1
