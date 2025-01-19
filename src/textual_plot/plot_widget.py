@@ -140,11 +140,18 @@ class PlotWidget(Widget):
     ) -> Iterator[tuple[int, int]]:
         """Get all pixels that make up a line.
 
+        Yes, I'm aware of the Bresenham algorithm. I will implement that if this
+        method turns out to be a bottleneck. This method is pretty simple. It
+        calculates the slope a = dy/dx and the offset b and uses the formula y =
+        a * x + b to calculate all points along the line. If the line is more
+        vertical than horizontal, looping over integer values of x creates gaps.
+        It's better to reverse the algorithm and loop over integer values of y
+        instead. It uses the built-in `round()` function to round coordinates to
+        the nearest integer values.
+
         Args:
-            x0: starting point x cooridinate
-            y0: starting point y cooridinate
-            x1: end point x coordinate
-            y1: end point y coordinate
+            x0: starting point x cooridinate y0: starting point y cooridinate
+            x1: end point x coordinate y1: end point y coordinate
 
         Yields:
             Tuples of (x, y) coordinates that make up the line.
@@ -155,12 +162,14 @@ class PlotWidget(Widget):
         yield x0, y0
         if dy < dx:
             # mostly horizontal line, loop over x
+            # calculate slope a and offset b
             a = dy / dx
             b = -a * x0 + y0
             for x in range(x0 + 1, x1):
                 yield x, round(a * x + b)
         else:
             # mostly vertical line, loop over y
+            # calculate 'inverse' slope a and offset b
             a = dx / dy
             b = -a * y0 + x0
             for y in range(y0 + 1, y1):
