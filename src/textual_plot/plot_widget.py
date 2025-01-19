@@ -70,25 +70,31 @@ class PlotWidget(Widget):
             *regions, repaint=repaint, layout=layout, recompose=recompose
         )
 
-    def _map_coordinate_to_pixel(self, x: float, y: float) -> tuple[float, float]:
-        def mapper(x, a, b, a_prime, b_prime):
-            return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
+    def _linear_mapper(self, x, a, b, a_prime, b_prime):
+        return round(a_prime + (x - a) * (b_prime - a_prime) / (b - a))
 
+    def _map_coordinate_to_pixel(self, x: float, y: float) -> tuple[float, float]:
         return (
-            mapper(x, self._x_min, self._x_max, 0, self.size.width - 1),
-            mapper(y, self._y_min, self._y_max, 0, self.size.height - 1),
+            self._linear_mapper(x, self._x_min, self._x_max, 0, self.size.width - 1),
+            self._linear_mapper(y, self._y_min, self._y_max, 0, self.size.height - 1),
         )
 
     def _map_coordinates_to_pixels(
         self, x: ArrayLike, y: ArrayLike
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[list[float], list[float]]:
         return (
-            np.interp(x, [self._x_min, self._x_max], [0, self.size.width - 1]).astype(
-                int
-            ),
-            np.interp(y, [self._y_min, self._y_max], [0, self.size.height - 1]).astype(
-                int
-            ),
+            [
+                self._linear_mapper(
+                    px, self._x_min, self._x_max, 0, self.size.width - 1
+                )
+                for px in x
+            ],
+            [
+                self._linear_mapper(
+                    py, self._y_min, self._y_max, 0, self.size.height - 1
+                )
+                for py in y
+            ],
         )
 
     def _render_plot(self) -> None:
@@ -107,18 +113,11 @@ class PlotWidget(Widget):
                 self._render_line_plot(dataset)
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
-        x_cell_boundaries = np.linspace(
-            self._x_min, self._x_max, self._plot_size.width + 1
-        )
-        y_cell_boundaries = np.linspace(
-            self._y_min, self._y_max, self._plot_size.height + 1
-        )
+        x, y = self._map_coordinates_to_pixels(dataset.x, dataset.y)
 
-        x_indexes = np.searchsorted(x_cell_boundaries, dataset.x)
-        y_indexes = np.searchsorted(y_cell_boundaries, dataset.y)
-        for x, y in zip(x_indexes, y_indexes):
+        for px, py in zip(x, y):
             try:
-                self._canvas[y][x] = Segment(
+                self._canvas[py][px] = Segment(
                     text=dataset.marker, style=dataset.marker_style
                 )
             except IndexError:
@@ -134,7 +133,6 @@ class PlotWidget(Widget):
                     self._canvas[py][px] = Segment(text="█", style=dataset.line_style)
                 except IndexError:
                     # data point is outside plot area
-                    self.notify(f"Out of bounds: ({px}, {py})")
                     pass
 
     def _get_pixels_in_line(
