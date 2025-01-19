@@ -159,22 +159,30 @@ class PlotWidget(Widget):
         dy = y1 - y0
         dx = x1 - x0
 
-        yield x0, y0
-        if dy < dx:
+        if abs(dy) < abs(dx):
             # mostly horizontal line, loop over x
+            if x1 < x0:
+                x0, x1 = x1, x0
+                y0, y1 = y1, y0
             # calculate slope a and offset b
             a = dy / dx
             b = -a * x0 + y0
+            yield x0, y0
             for x in range(x0 + 1, x1):
                 yield x, round(a * x + b)
+            yield x1, y1
         else:
             # mostly vertical line, loop over y
+            if y1 < y0:
+                x0, x1 = x1, x0
+                y0, y1 = y1, y0
             # calculate 'inverse' slope a and offset b
             a = dx / dy
             b = -a * y0 + x0
+            yield x0, y0
             for y in range(y0 + 1, y1):
                 yield round(a * y + b), y
-        yield x1, y1
+            yield x1, y1
 
     def render_line(self, y: int) -> Strip:
         """Render a line of the widget. y is relative to the top of the widget."""
@@ -197,7 +205,7 @@ class DemoApp(App[None]):
         plot = self.query_one(PlotWidget)
         plot.clear()
         plot.scatter(x=[0, 1, 2, 3, 4, 5], y=[0, 1, 4, 9, 16, 25], marker_style="blue")
-        x = np.linspace(0, 10, 51)
+        x = np.linspace(0, 10, 17)
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
 
