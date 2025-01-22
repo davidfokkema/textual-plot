@@ -18,5 +18,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "mypy>=1.14.1",
+    "rust-just>=1.38.0",
     "textual-dev>=1.7.0",
 ]

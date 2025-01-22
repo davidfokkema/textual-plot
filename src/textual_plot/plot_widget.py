@@ -1,10 +1,8 @@
-import random
-import time
 from dataclasses import dataclass
 from typing import Iterator, Self
 
 import numpy as np
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 from rich.segment import Segment
 from rich.style import Style
 from textual._box_drawing import BOX_CHARACTERS
@@ -17,8 +15,8 @@ from textual.widget import Widget
 
 @dataclass
 class DataSet:
-    x: np.ndarray
-    y: np.ndarray
+    x: NDArray[np.floating]
+    y: NDArray[np.floating]
 
 
 @dataclass
@@ -49,15 +47,27 @@ class PlotWidget(Widget):
     def clear(self) -> None:
         self._datasets = []
 
-    def plot(self, x: ArrayLike, y: ArrayLike, line_style="white") -> None:
-        self._datasets.append(LinePlot(x=x, y=y, line_style=Style.parse(line_style)))
+    def plot(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        line_style: str = "white",
+    ) -> None:
+        self._datasets.append(
+            LinePlot(x=np.array(x), y=np.array(y), line_style=Style.parse(line_style))
+        )
         self.refresh()
 
     def scatter(
-        self, x: ArrayLike, y: ArrayLike, marker="o", marker_style="white"
+        self, x: ArrayLike, y: ArrayLike, marker: str = "o", marker_style: str = "white"
     ) -> None:
         self._datasets.append(
-            ScatterPlot(x=x, y=y, marker=marker, marker_style=Style.parse(marker_style))
+            ScatterPlot(
+                x=np.array(x),
+                y=np.array(y),
+                marker=marker,
+                marker_style=Style.parse(marker_style),
+            )
         )
         self.refresh()
 
@@ -73,28 +83,35 @@ class PlotWidget(Widget):
             *regions, repaint=repaint, layout=layout, recompose=recompose
         )
 
-    def _linear_mapper(self, x, a, b, a_prime, b_prime):
-        return round(a_prime + (x - a) * (b_prime - a_prime) / (b - a))
-
-    def _map_coordinate_to_pixel(self, x: float, y: float) -> tuple[float, float]:
-        return (
-            self._linear_mapper(x, self._x_min, self._x_max, 0, self.size.width - 1),
-            self._linear_mapper(y, self._y_min, self._y_max, 0, self.size.height - 1),
-        )
+    def _linear_mapper(
+        self,
+        x: float | int,
+        a: float | int,
+        b: float | int,
+        a_prime: float | int,
+        b_prime: float | int,
+    ) -> float:
+        return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
     def _map_coordinates_to_pixels(
-        self, x: ArrayLike, y: ArrayLike
-    ) -> tuple[list[float], list[float]]:
+        self,
+        x: list[float] | NDArray[np.floating],
+        y: list[float] | NDArray[np.floating],
+    ) -> tuple[list[int], list[int]]:
         return (
             [
-                self._linear_mapper(
-                    px, self._x_min, self._x_max, 0, self.size.width - 1
+                round(
+                    self._linear_mapper(
+                        px, self._x_min, self._x_max, 0, self._plot_size.width - 1
+                    )
                 )
                 for px in x
             ],
             [
-                self._linear_mapper(
-                    py, self._y_min, self._y_max, 0, self.size.height - 1
+                round(
+                    self._linear_mapper(
+                        py, self._y_min, self._y_max, 0, self._plot_size.height - 1
+                    )
                 )
                 for py in y
             ],
@@ -136,7 +153,9 @@ class PlotWidget(Widget):
                     # data point is outside plot area
                     pass
 
-    def bresenham_line(self, x0, y0, x1, y1):
+    def bresenham_line(
+        self, x0: int, y0: int, x1: int, y1: int
+    ) -> Iterator[tuple[int, int]]:
         """Get all pixel coordinates on the line between two points.
 
         Algorithm was taken from
@@ -176,6 +195,7 @@ class PlotWidget(Widget):
         """Render a line of the widget. y is relative to the top of the widget."""
         get_box = BOX_CHARACTERS.__getitem__
         if y < 1:
+            # top line of the box
             return Strip(
                 [
                     Segment(" " * self._margin_left, Style(bgcolor="green")),
@@ -187,6 +207,7 @@ class PlotWidget(Widget):
                 ]
             )
         elif y < self._plot_size.height + 1:
+            # plot area (with left margin)
             return Strip(
                 [
                     Segment(" " * self._margin_left, Style(bgcolor="blue")),
@@ -197,6 +218,7 @@ class PlotWidget(Widget):
                 cell_length=self.size.width,
             )
         elif y < self._plot_size.height + 2:
+            # bottom line of the box
             return Strip(
                 [
                     Segment(" " * self._margin_left, Style(bgcolor="green")),
@@ -208,6 +230,7 @@ class PlotWidget(Widget):
                 ]
             )
         else:
+            # bottom margin
             return Strip(
                 [Segment(" " * self.size.width, Style(bgcolor="red"))],
                 cell_length=self.size.width,
@@ -215,7 +238,7 @@ class PlotWidget(Widget):
 
 
 class DemoApp(App[None]):
-    _phi = 0
+    _phi: float = 0.0
 
     def compose(self) -> ComposeResult:
         yield PlotWidget()
