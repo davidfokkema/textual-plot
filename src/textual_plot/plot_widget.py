@@ -37,8 +37,10 @@ class PlotWidget(Widget):
     _x_max: float = 10.0
     _y_min: float = 0.0
     _y_max: float = 30.0
-    _margin_left: int = 10
-    _margin_bottom: int = 3
+    _margin_top: int = 2
+    _margin_right: int = 2
+    _margin_bottom: int = 2
+    _margin_left: int = 2
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -118,7 +120,10 @@ class PlotWidget(Widget):
         )
 
     def _render_plot(self) -> None:
-        self._plot_size = self.size - (self._margin_left + 2, self._margin_bottom + 2)
+        self._plot_size = self.size - (
+            self._margin_left + self._margin_right,
+            self._margin_top + self._margin_bottom,
+        )
 
         self._canvas = [
             [Segment(" ") for _ in range(self._plot_size.width)]
@@ -193,40 +198,57 @@ class PlotWidget(Widget):
 
     def render_line(self, y: int) -> Strip:
         """Render a line of the widget. y is relative to the top of the widget."""
+        # calculate rows and ranges of parts
+        row_top_border = self._margin_top - 1
+        rows_plot = (
+            self._margin_top,
+            self.size.height - self._margin_bottom - 1,
+        )
+        row_bottom_border = rows_plot[1] + 1
+
         get_box = BOX_CHARACTERS.__getitem__
-        if y < 1:
+        if y < row_top_border:
+            # top margin
+            return Strip(
+                [Segment(" " * self.size.width, Style(bgcolor="red"))],
+                cell_length=self.size.width,
+            )
+        elif y == row_top_border:
             # top line of the box
             return Strip(
                 [
-                    Segment(" " * self._margin_left, Style(bgcolor="green")),
+                    Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
                     Segment(
                         get_box((0, 2, 2, 0))
                         + get_box((0, 2, 0, 2)) * self._plot_size.width
                         + get_box((0, 0, 2, 2))
                     ),
+                    Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
                 ]
             )
-        elif y < self._plot_size.height + 1:
+        elif rows_plot[0] <= y <= rows_plot[1]:
             # plot area (with left margin)
             return Strip(
-                [
-                    Segment(" " * self._margin_left, Style(bgcolor="blue")),
-                    Segment(get_box((2, 0, 2, 0))),
-                ]
-                + self._canvas[self._plot_size.height - y]
-                + [Segment(get_box((2, 0, 2, 0)))],
+                [Segment(" " * (self._margin_left - 1), Style(bgcolor="blue"))]
+                + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_left else [])
+                + self._canvas[self._plot_size.height - (y - self._margin_top) - 1]
+                + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_right else [])
+                + [
+                    Segment(" " * (self._margin_right - 1), Style(bgcolor="blue")),
+                ],
                 cell_length=self.size.width,
             )
-        elif y < self._plot_size.height + 2:
+        elif y == row_bottom_border:
             # bottom line of the box
             return Strip(
                 [
-                    Segment(" " * self._margin_left, Style(bgcolor="green")),
+                    Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
                     Segment(
                         get_box((2, 2, 0, 0))
                         + get_box((0, 2, 0, 2)) * self._plot_size.width
                         + get_box((2, 0, 0, 2))
                     ),
+                    Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
                 ]
             )
         else:
@@ -238,6 +260,11 @@ class PlotWidget(Widget):
 
 
 class DemoApp(App[None]):
+    CSS = """
+        PlotWidget {
+            border: solid $secondary;
+        }
+    """
     _phi: float = 0.0
 
     def compose(self) -> ComposeResult:
@@ -250,8 +277,8 @@ class DemoApp(App[None]):
         plot = self.query_one(PlotWidget)
         plot.clear()
         plot.scatter(
-            x=[0, 1, 2, 3, 4, 5],
-            y=[0, 1, 4, 9, 16, 25],
+            x=[0, 1, 2, 3, 4, 5, 9.99],
+            y=[0, 1, 4, 9, 16, 25, 29.99],
             marker_style="blue",
             marker="*",
         )
