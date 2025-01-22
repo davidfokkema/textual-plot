@@ -38,6 +38,8 @@ class PlotWidget(Widget):
     _x_max: float = 10.0
     _y_min: float = 0.0
     _y_max: float = 30.0
+    _margin_left: int = 10
+    _margin_bottom: int = 3
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -98,9 +100,7 @@ class PlotWidget(Widget):
         )
 
     def _render_plot(self) -> None:
-        self._plot_size = self.size
-        if self._plot_size.width == 0:
-            return
+        self._plot_size = self.size - (self._margin_left, self._margin_bottom)
 
         self._canvas = [
             [Segment(" ") for _ in range(self._plot_size.width)]
@@ -173,10 +173,17 @@ class PlotWidget(Widget):
 
     def render_line(self, y: int) -> Strip:
         """Render a line of the widget. y is relative to the top of the widget."""
-        return Strip(
-            self._canvas[self._plot_size.height - y - 1],
-            cell_length=self._plot_size.width,
-        )
+        if y < self._plot_size.height:
+            return Strip(
+                [Segment(" " * self._margin_left, Style(bgcolor="blue"))]
+                + self._canvas[self._plot_size.height - y - 1],
+                cell_length=self.size.width,
+            )
+        else:
+            return Strip(
+                [Segment(" " * self.size.width, Style(bgcolor="red"))],
+                cell_length=self.size.width,
+            )
 
 
 class DemoApp(App[None]):
