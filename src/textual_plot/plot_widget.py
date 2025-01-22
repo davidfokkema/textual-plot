@@ -7,6 +7,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 from rich.segment import Segment
 from rich.style import Style
+from textual._box_drawing import BOX_CHARACTERS
 from textual.app import App, ComposeResult
 from textual.color import Color
 from textual.geometry import Region, Size
@@ -100,7 +101,7 @@ class PlotWidget(Widget):
         )
 
     def _render_plot(self) -> None:
-        self._plot_size = self.size - (self._margin_left, self._margin_bottom)
+        self._plot_size = self.size - (self._margin_left + 2, self._margin_bottom + 2)
 
         self._canvas = [
             [Segment(" ") for _ in range(self._plot_size.width)]
@@ -173,11 +174,38 @@ class PlotWidget(Widget):
 
     def render_line(self, y: int) -> Strip:
         """Render a line of the widget. y is relative to the top of the widget."""
-        if y < self._plot_size.height:
+        get_box = BOX_CHARACTERS.__getitem__
+        if y < 1:
             return Strip(
-                [Segment(" " * self._margin_left, Style(bgcolor="blue"))]
-                + self._canvas[self._plot_size.height - y - 1],
+                [
+                    Segment(" " * self._margin_left, Style(bgcolor="green")),
+                    Segment(
+                        get_box((0, 2, 2, 0))
+                        + get_box((0, 2, 0, 2)) * self._plot_size.width
+                        + get_box((0, 0, 2, 2))
+                    ),
+                ]
+            )
+        elif y < self._plot_size.height + 1:
+            return Strip(
+                [
+                    Segment(" " * self._margin_left, Style(bgcolor="blue")),
+                    Segment(get_box((2, 0, 2, 0))),
+                ]
+                + self._canvas[self._plot_size.height - y]
+                + [Segment(get_box((2, 0, 2, 0)))],
                 cell_length=self.size.width,
+            )
+        elif y < self._plot_size.height + 2:
+            return Strip(
+                [
+                    Segment(" " * self._margin_left, Style(bgcolor="green")),
+                    Segment(
+                        get_box((2, 2, 0, 0))
+                        + get_box((0, 2, 0, 2)) * self._plot_size.width
+                        + get_box((2, 0, 0, 2))
+                    ),
+                ]
             )
         else:
             return Strip(
@@ -198,7 +226,12 @@ class DemoApp(App[None]):
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
         plot.clear()
-        plot.scatter(x=[0, 1, 2, 3, 4, 5], y=[0, 1, 4, 9, 16, 25], marker_style="blue")
+        plot.scatter(
+            x=[0, 1, 2, 3, 4, 5],
+            y=[0, 1, 4, 9, 16, 25],
+            marker_style="blue",
+            marker="*",
+        )
         x = np.linspace(0, 10, 17)
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
