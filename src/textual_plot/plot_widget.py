@@ -128,61 +128,48 @@ class PlotWidget(Widget):
         x, y = self._map_coordinates_to_pixels(dataset.x, dataset.y)
 
         for i in range(1, len(x)):
-            for px, py in self._get_pixels_in_line(x[i - 1], y[i - 1], x[i], y[i]):
+            for px, py in self.bresenham_line(x[i - 1], y[i - 1], x[i], y[i]):
                 try:
                     self._canvas[py][px] = Segment(text="█", style=dataset.line_style)
                 except IndexError:
                     # data point is outside plot area
                     pass
 
-    def _get_pixels_in_line(
-        self, x0: int, y0: int, x1: int, y1: int
-    ) -> Iterator[tuple[int, int]]:
-        """Get all pixels that make up a line.
+    def bresenham_line(self, x0, y0, x1, y1):
+        """Get all pixel coordinates on the line between two points.
 
-        Yes, I'm aware of the Bresenham algorithm. I will implement that if this
-        method turns out to be a bottleneck. This method is pretty simple. It
-        calculates the slope a = dy/dx and the offset b and uses the formula y =
-        a * x + b to calculate all points along the line. If the line is more
-        vertical than horizontal, looping over integer values of x creates gaps.
-        It's better to reverse the algorithm and loop over integer values of y
-        instead. It uses the built-in `round()` function to round coordinates to
-        the nearest integer values.
+        Algorithm was taken from
+        https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm and
+        translated to Python.
 
         Args:
-            x0: starting point x cooridinate y0: starting point y cooridinate
-            x1: end point x coordinate y1: end point y coordinate
+            x0: starting point x coordinate
+            y0: starting point y coordinate
+            x1: end point x coordinate
+            y1: end point y coordinate
 
         Yields:
             Tuples of (x, y) coordinates that make up the line.
         """
-        dy = y1 - y0
-        dx = x1 - x0
+        dx = abs(x1 - x0)
+        sx = 1 if x0 < x1 else -1
+        dy = -abs(y1 - y0)
+        sy = 1 if y0 < y1 else -1
+        error = dx + dy
 
-        if abs(dy) < abs(dx):
-            # mostly horizontal line, loop over x
-            if x1 < x0:
-                x0, x1 = x1, x0
-                y0, y1 = y1, y0
-            # calculate slope a and offset b
-            a = dy / dx
-            b = -a * x0 + y0
+        while True:
             yield x0, y0
-            for x in range(x0 + 1, x1):
-                yield x, round(a * x + b)
-            yield x1, y1
-        else:
-            # mostly vertical line, loop over y
-            if y1 < y0:
-                x0, x1 = x1, x0
-                y0, y1 = y1, y0
-            # calculate 'inverse' slope a and offset b
-            a = dx / dy
-            b = -a * y0 + x0
-            yield x0, y0
-            for y in range(y0 + 1, y1):
-                yield round(a * y + b), y
-            yield x1, y1
+            e2 = 2 * error
+            if e2 >= dy:
+                if x0 == x1:
+                    break
+                error = error + dy
+                x0 = x0 + sx
+            if e2 <= dx:
+                if y0 == y1:
+                    break
+                error = error + dx
+                y0 = y0 + sy
 
     def render_line(self, y: int) -> Strip:
         """Render a line of the widget. y is relative to the top of the widget."""
