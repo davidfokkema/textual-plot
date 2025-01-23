@@ -37,8 +37,8 @@ class PlotWidget(Widget):
     _x_max: float = 10.0
     _y_min: float = 0.0
     _y_max: float = 30.0
-    _margin_top: int = 2
-    _margin_right: int = 2
+    _margin_top: int = 1
+    _margin_right: int = 1
     _margin_bottom: int = 2
     _margin_left: int = 2
 
@@ -199,64 +199,79 @@ class PlotWidget(Widget):
     def render_line(self, y: int) -> Strip:
         """Render a line of the widget. y is relative to the top of the widget."""
         # calculate rows and ranges of parts
-        row_top_border = self._margin_top - 1
         rows_plot = (
             self._margin_top,
             self.size.height - self._margin_bottom - 1,
         )
+        row_top_border = rows_plot[0] - 1
         row_bottom_border = rows_plot[1] + 1
 
-        get_box = BOX_CHARACTERS.__getitem__
+        # render parts
         if y < row_top_border:
-            # top margin
-            return Strip(
-                [Segment(" " * self.size.width, Style(bgcolor="red"))],
-                cell_length=self.size.width,
-            )
+            return self._render_top_margin()
         elif y == row_top_border:
-            # top line of the box
-            return Strip(
-                [
-                    Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
-                    Segment(
-                        get_box((0, 2, 2, 0))
-                        + get_box((0, 2, 0, 2)) * self._plot_size.width
-                        + get_box((0, 0, 2, 2))
-                    ),
-                    Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
-                ]
-            )
+            return self._render_box_top()
         elif rows_plot[0] <= y <= rows_plot[1]:
-            # plot area (with left margin)
-            return Strip(
-                [Segment(" " * (self._margin_left - 1), Style(bgcolor="blue"))]
-                + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_left else [])
-                + self._canvas[self._plot_size.height - (y - self._margin_top) - 1]
-                + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_right else [])
-                + [
-                    Segment(" " * (self._margin_right - 1), Style(bgcolor="blue")),
-                ],
-                cell_length=self.size.width,
-            )
+            return self._render_plot_area_with_leftright_margins(y)
         elif y == row_bottom_border:
-            # bottom line of the box
-            return Strip(
-                [
-                    Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
-                    Segment(
-                        get_box((2, 2, 0, 0))
-                        + get_box((0, 2, 0, 2)) * self._plot_size.width
-                        + get_box((2, 0, 0, 2))
-                    ),
-                    Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
-                ]
-            )
+            return self._render_box_bottom()
         else:
-            # bottom margin
-            return Strip(
-                [Segment(" " * self.size.width, Style(bgcolor="red"))],
-                cell_length=self.size.width,
-            )
+            return self._render_bottom_margin()
+
+    def _render_bottom_margin(self):
+        return Strip(
+            [Segment(" " * self.size.width, Style(bgcolor="red"))],
+            cell_length=self.size.width,
+        )
+
+    def _render_box_bottom(self):
+        get_box = BOX_CHARACTERS.__getitem__
+        return Strip(
+            [
+                Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
+                Segment(
+                    get_box((2, 2, 0, 0))
+                    + get_box((0, 2, 0, 2)) * self._plot_size.width
+                    + get_box((2, 0, 0, 2))
+                ),
+                Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
+            ]
+        )
+
+    def _render_plot_area_with_leftright_margins(self, y):
+        get_box = BOX_CHARACTERS.__getitem__
+        return Strip(
+            [Segment(" " * (self._margin_left - 1), Style(bgcolor="blue"))]
+            + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_left else [])
+            + self._canvas[self._plot_size.height - (y - self._margin_top) - 1]
+            + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_right else [])
+            + [
+                Segment(" " * (self._margin_right - 1), Style(bgcolor="blue")),
+            ],
+            cell_length=self.size.width,
+        )
+
+    def _render_box_top(self):
+        get_box = BOX_CHARACTERS.__getitem__
+        return Strip(
+            [
+                Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
+                Segment(
+                    get_box((0, 2, 2, 0))
+                    + get_box((0, 2, 0, 2)) * self._plot_size.width
+                    + get_box((0, 0, 2, 2))
+                ),
+                Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
+            ]
+        )
+
+    def _render_top_margin(self):
+        strip = Strip(
+            [Segment(" " * self.size.width, Style(bgcolor="red"))],
+            cell_length=self.size.width,
+        )
+
+        return strip
 
 
 class DemoApp(App[None]):
