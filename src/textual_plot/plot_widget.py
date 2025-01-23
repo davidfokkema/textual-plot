@@ -1,3 +1,4 @@
+import enum
 from dataclasses import dataclass
 from typing import Iterator, Self
 
@@ -28,6 +29,12 @@ class LinePlot(DataSet):
 class ScatterPlot(DataSet):
     marker: str
     marker_style: Style
+
+
+class TextAlign(enum.Enum):
+    LEFT = enum.auto()
+    CENTER = enum.auto()
+    RIGHT = enum.auto()
 
 
 class PlotWidget(Widget):
@@ -212,7 +219,7 @@ class PlotWidget(Widget):
         elif y == row_top_border:
             return self._render_box_top()
         elif rows_plot[0] <= y <= rows_plot[1]:
-            return self._render_plot_area_with_leftright_margins(y)
+            return self._render_plot_area_with_leftright_margins(idx=y - rows_plot[0])
         elif y == row_bottom_border:
             return self._render_box_bottom()
         else:
@@ -225,10 +232,17 @@ class PlotWidget(Widget):
         )
 
     def _render_box_top(self) -> Strip:
+        left_margin = insert_text_into(
+            " " * (self._margin_left - 1),
+            str(self._y_max),
+            index=self._margin_left - 3,
+            align=TextAlign.RIGHT,
+        )
+
         get_box = BOX_CHARACTERS.__getitem__
         return Strip(
             [
-                Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
+                Segment(left_margin, Style.parse("bold white on black")),
                 Segment(
                     get_box((0, 2, 2, 2))
                     + get_box((0, 2, 0, 2)) * self._plot_size.width
@@ -238,12 +252,13 @@ class PlotWidget(Widget):
             ]
         )
 
-    def _render_plot_area_with_leftright_margins(self, y) -> Strip:
+    def _render_plot_area_with_leftright_margins(self, idx: int) -> Strip:
         get_box = BOX_CHARACTERS.__getitem__
+        left_margin = " " * (self._margin_left - 1)
         return Strip(
-            [Segment(" " * (self._margin_left - 1), Style(bgcolor="blue"))]
+            [Segment(left_margin, Style(bgcolor="blue"))]
             + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_left else [])
-            + self._canvas[self._plot_size.height - (y - self._margin_top) - 1]
+            + self._canvas[self._plot_size.height - 1 - idx]
             + ([Segment(get_box((2, 0, 2, 0)))] if self._margin_right else [])
             + [
                 Segment(" " * (self._margin_right - 1), Style(bgcolor="blue")),
@@ -252,10 +267,17 @@ class PlotWidget(Widget):
         )
 
     def _render_box_bottom(self) -> Strip:
+        left_margin = insert_text_into(
+            " " * (self._margin_left - 1),
+            str(self._y_min),
+            index=self._margin_left - 3,
+            align=TextAlign.RIGHT,
+        )
+
         get_box = BOX_CHARACTERS.__getitem__
         return Strip(
             [
-                Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
+                Segment(left_margin, Style.parse("bold white on black")),
                 Segment(
                     get_box((2, 2, 2, 2))
                     + get_box((0, 2, 0, 2)) * self._plot_size.width
@@ -268,20 +290,19 @@ class PlotWidget(Widget):
     def _render_bottom_margin(self, idx: int) -> Strip:
         if idx == 0:
             tick_labels = " " * self.size.width
-            min_label = str(self._x_min)
             tick_labels = insert_text_into(
                 tick_labels,
-                min_label,
-                index=self._margin_left - len(min_label) // 2 - 1,
+                str(self._x_min),
+                index=self._margin_left - 1,
+                align=TextAlign.CENTER,
             )
-            max_label = str(self._x_max)
             tick_labels = insert_text_into(
                 tick_labels,
-                max_label,
-                index=self.size.width - self._margin_right - len(max_label) + 1,
+                str(self._x_max),
+                index=self.size.width - self._margin_right,
+                align=TextAlign.RIGHT,
             )
-
-            return Strip([Segment(tick_labels)])
+            return Strip([Segment(tick_labels, Style.parse("bold white on black"))])
         else:
             return Strip(
                 [Segment(" " * self.size.width, Style(bgcolor="red"))],
@@ -289,10 +310,14 @@ class PlotWidget(Widget):
             )
 
 
-def insert_text_into(string: str, text: str, index: int) -> str:
+def insert_text_into(
+    string: str, text: str, index: int, align: TextAlign = TextAlign.LEFT
+) -> str:
     """Insert text into a string, overwriting the original string.
 
-    This method will insert text into an existing string, overwriting the original and keeping its length, clipping the text if necessary.
+    This method will insert text into an existing string, overwriting the
+    original and keeping its length, clipping the text if necessary. You can
+    specify the text alignment (left, center or right).
 
     For example:
 
@@ -310,15 +335,28 @@ def insert_text_into(string: str, text: str, index: int) -> str:
         '-123456789'
         >>> insert_text_into("0123456789", "---", -20)
         '0123456789'
+        >>> insert_text_into("0123456789", "---", 9, align=TextAlign.RIGHT)
+        '0123456---'
 
     Args:
         string: The original string.
         text: The text to insert.
         index: The position at which to insert.
+        alignment: The text alignment (left, center or right).
 
     Returns:
         The new string.
     """
+    if align == TextAlign.RIGHT:
+        index -= len(text) - 1
+    elif align == TextAlign.CENTER:
+        div, mod = divmod(len(text), 2)
+        index -= div
+        if mod == 0:
+            # even number of characters, shift one to the right since I just
+            # like that better -- DF
+            index += 1
+
     if index >= len(string) or index <= -len(text):
         return string
     elif index < 0:
