@@ -38,9 +38,9 @@ class PlotWidget(Widget):
     _y_min: float = 0.0
     _y_max: float = 30.0
     _margin_top: int = 1
-    _margin_right: int = 1
-    _margin_bottom: int = 2
-    _margin_left: int = 2
+    _margin_right: int = 5
+    _margin_bottom: int = 5
+    _margin_left: int = 10
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -216,29 +216,29 @@ class PlotWidget(Widget):
         elif y == row_bottom_border:
             return self._render_box_bottom()
         else:
-            return self._render_bottom_margin()
+            return self._render_bottom_margin(idx=y - (row_bottom_border + 1))
 
-    def _render_bottom_margin(self):
+    def _render_top_margin(self) -> Strip:
         return Strip(
             [Segment(" " * self.size.width, Style(bgcolor="red"))],
             cell_length=self.size.width,
         )
 
-    def _render_box_bottom(self):
+    def _render_box_top(self) -> Strip:
         get_box = BOX_CHARACTERS.__getitem__
         return Strip(
             [
                 Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
                 Segment(
-                    get_box((2, 2, 0, 0))
+                    get_box((0, 2, 2, 2))
                     + get_box((0, 2, 0, 2)) * self._plot_size.width
-                    + get_box((2, 0, 0, 2))
+                    + get_box((0, 0, 2, 2))
                 ),
                 Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
             ]
         )
 
-    def _render_plot_area_with_leftright_margins(self, y):
+    def _render_plot_area_with_leftright_margins(self, y) -> Strip:
         get_box = BOX_CHARACTERS.__getitem__
         return Strip(
             [Segment(" " * (self._margin_left - 1), Style(bgcolor="blue"))]
@@ -251,27 +251,82 @@ class PlotWidget(Widget):
             cell_length=self.size.width,
         )
 
-    def _render_box_top(self):
+    def _render_box_bottom(self) -> Strip:
         get_box = BOX_CHARACTERS.__getitem__
         return Strip(
             [
                 Segment(" " * (self._margin_left - 1), Style(bgcolor="green")),
                 Segment(
-                    get_box((0, 2, 2, 0))
+                    get_box((2, 2, 2, 2))
                     + get_box((0, 2, 0, 2)) * self._plot_size.width
-                    + get_box((0, 0, 2, 2))
+                    + get_box((2, 0, 2, 2))
                 ),
                 Segment(" " * (self._margin_right - 1), Style(bgcolor="green")),
             ]
         )
 
-    def _render_top_margin(self):
-        strip = Strip(
-            [Segment(" " * self.size.width, Style(bgcolor="red"))],
-            cell_length=self.size.width,
-        )
+    def _render_bottom_margin(self, idx: int) -> Strip:
+        if idx == 0:
+            tick_labels = " " * self.size.width
+            min_label = str(self._x_min)
+            tick_labels = insert_text_into(
+                tick_labels,
+                min_label,
+                index=self._margin_left - len(min_label) // 2 - 1,
+            )
+            max_label = str(self._x_max)
+            tick_labels = insert_text_into(
+                tick_labels,
+                max_label,
+                index=self.size.width - self._margin_right - len(max_label) + 1,
+            )
 
-        return strip
+            return Strip([Segment(tick_labels)])
+        else:
+            return Strip(
+                [Segment(" " * self.size.width, Style(bgcolor="red"))],
+                cell_length=self.size.width,
+            )
+
+
+def insert_text_into(string: str, text: str, index: int) -> str:
+    """Insert text into a string, overwriting the original string.
+
+    This method will insert text into an existing string, overwriting the original and keeping its length, clipping the text if necessary.
+
+    For example:
+
+        >>> insert_text_into("0123456789", "---", 0)
+        '---3456789'
+        >>> insert_text_into("0123456789", "---", 4)
+        '0123---789'
+        >>> insert_text_into("0123456789", "---", 9)
+        '012345678-'
+        >>> insert_text_into("0123456789", "---", 20)
+        '0123456789'
+        >>> insert_text_into("0123456789", "---", -1)
+        '--23456789'
+        >>> insert_text_into("0123456789", "---", -2)
+        '-123456789'
+        >>> insert_text_into("0123456789", "---", -20)
+        '0123456789'
+
+    Args:
+        string: The original string.
+        text: The text to insert.
+        index: The position at which to insert.
+
+    Returns:
+        The new string.
+    """
+    if index >= len(string) or index <= -len(text):
+        return string
+    elif index < 0:
+        return text[-index:] + string[len(text) + index :]
+    else:
+        return (
+            string[:index] + text[: len(string) - index] + string[index + len(text) :]
+        )
 
 
 class DemoApp(App[None]):
