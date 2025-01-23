@@ -100,6 +100,7 @@ class PlotWidget(Widget):
         a_prime: float | int,
         b_prime: float | int,
     ) -> float:
+        # FIXME: needs adjustment because I want 'outer' limits
         return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
     def _map_coordinates_to_pixels(
