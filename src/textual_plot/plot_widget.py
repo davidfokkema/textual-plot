@@ -6,12 +6,17 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from rich.segment import Segment
 from rich.style import Style
+from textual import on
 from textual._box_drawing import BOX_CHARACTERS
 from textual.app import App, ComposeResult
 from textual.color import Color
+from textual.events import MouseScrollDown, MouseScrollUp
 from textual.geometry import Region, Size
 from textual.strip import Strip
 from textual.widget import Widget
+from textual.widgets import Placeholder
+
+ZOOM_FACTOR = 0.01
 
 
 @dataclass
@@ -44,7 +49,7 @@ class PlotWidget(Widget):
     _x_max: float = 10.0
     _y_min: float = 0.0
     _y_max: float = 30.0
-    _margin_top: int = 1
+    _margin_top: int = 2
     _margin_right: int = 5
     _margin_bottom: int = 5
     _margin_left: int = 10
@@ -147,6 +152,8 @@ class PlotWidget(Widget):
         x, y = self._map_coordinates_to_pixels(dataset.x, dataset.y)
 
         for px, py in zip(x, y):
+            if px < 0 or py < 0:
+                continue
             try:
                 self._canvas[py][px] = Segment(
                     text=dataset.marker, style=dataset.marker_style
@@ -160,6 +167,8 @@ class PlotWidget(Widget):
 
         for i in range(1, len(x)):
             for px, py in self.bresenham_line(x[i - 1], y[i - 1], x[i], y[i]):
+                if px < 0 or py < 0:
+                    continue
                 try:
                     self._canvas[py][px] = Segment(text="█", style=dataset.line_style)
                 except IndexError:
@@ -235,7 +244,7 @@ class PlotWidget(Widget):
     def _render_box_top(self) -> Strip:
         left_margin = insert_text_into(
             " " * (self._margin_left - 1),
-            str(self._y_max),
+            f"{self._y_max:.3f}",
             index=self._margin_left - 3,
             align=TextAlign.RIGHT,
         )
@@ -270,7 +279,7 @@ class PlotWidget(Widget):
     def _render_box_bottom(self) -> Strip:
         left_margin = insert_text_into(
             " " * (self._margin_left - 1),
-            str(self._y_min),
+            f"{self._y_min:.3f}",
             index=self._margin_left - 3,
             align=TextAlign.RIGHT,
         )
@@ -309,6 +318,33 @@ class PlotWidget(Widget):
                 [Segment(" " * self.size.width, Style(bgcolor="red"))],
                 cell_length=self.size.width,
             )
+
+    @on(MouseScrollDown)
+    def zoom_in(self, event: MouseScrollDown) -> None:
+        if (offset := event.get_content_offset(self)) is not None:
+            x, y = self._content_offset_to_plot_coordinate(offset)
+            self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
+            self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
+            self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+            self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+        self.refresh()
+
+    @on(MouseScrollUp)
+    def zoom_out(self, event: MouseScrollDown) -> None:
+        if (offset := event.get_content_offset(self)) is not None:
+            x, y = self._content_offset_to_plot_coordinate(offset)
+            self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
+            self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
+            self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
+            self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
+        self.refresh()
+
+    def _content_offset_to_plot_coordinate(self, offset):
+        x = offset.x - self._margin_left
+        y = self._plot_size.height - (offset.y - self._margin_top)
+        xp = self._linear_mapper(x, 0, self._plot_size.width, self._x_min, self._x_max)
+        yp = self._linear_mapper(y, 0, self._plot_size.height, self._y_min, self._y_max)
+        return xp, yp
 
 
 def insert_text_into(
@@ -371,13 +407,20 @@ def insert_text_into(
 class DemoApp(App[None]):
     CSS = """
         PlotWidget {
+            height: 2fr;
             border: solid $secondary;
+            padding: 2;
+        }
+        Placeholder {
+            height: 1fr;
         }
     """
     _phi: float = 0.0
 
     def compose(self) -> ComposeResult:
+        # yield Placeholder()
         yield PlotWidget()
+        # yield Placeholder()
 
     def on_mount(self) -> None:
         self.set_interval(1 / 24, self.plot_refresh)
@@ -402,3 +445,5 @@ class DemoApp(App[None]):
 if __name__ == "__main__":
     app = DemoApp()
     app.run()
+    # p = PlotWidget()
+    # print(f"{p._linear_mapper(1.2, 0, 1.0, 0, 10)=}")
