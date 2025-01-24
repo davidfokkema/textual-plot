@@ -77,6 +77,7 @@ class Canvas(Widget):
         try:
             self._buffer[y][x] = char
             self._styles[y][x] = style
+            self.refresh()
         except IndexError:
             pass
 
@@ -174,6 +175,7 @@ class Canvas(Widget):
         ]
         assert len(self._buffer[y]) == self._canvas_size.width
         assert len(self._styles[y]) == self._canvas_size.width
+        self.refresh()
 
     def _get_line_coordinates(
         self, x0: int, y0: int, x1: int, y1: int
