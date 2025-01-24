@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from rich.segment import Segment
 from rich.style import Style
 from textual import on
+from textual._box_drawing import BOX_CHARACTERS
 from textual.app import App, ComposeResult
 from textual.geometry import Region, Size
 from textual.message import Message
@@ -18,6 +19,7 @@ class Canvas(Widget):
         size: Size
 
     _canvas_size: Size | None = None
+    get_box = BOX_CHARACTERS.__getitem__
 
     def __init__(
         self,
@@ -78,6 +80,31 @@ class Canvas(Widget):
     ) -> None:
         self.set_pixels(self._get_line_coordinates(x0, y0, x1, y1), char, style)
 
+    def draw_rectangle_box(
+        self,
+        x0: int,
+        y0: int,
+        x1: int,
+        y1: int,
+        thickness: int = 1,
+        style: str = "white",
+    ) -> None:
+        T = thickness
+        x0, x1 = sorted((x0, x1))
+        y0, y1 = sorted((y0, y1))
+        self.set_pixel(x0, y0, char=self.get_box((0, T, T, 0)), style=style)
+        self.set_pixel(x1, y0, char=self.get_box((0, 0, T, T)), style=style)
+        self.set_pixel(x1, y1, char=self.get_box((T, 0, 0, T)), style=style)
+        self.set_pixel(x0, y1, char=self.get_box((T, T, 0, 0)), style=style)
+        for y in y0, y1:
+            self.draw_line(
+                x0 + 1, y, x1 - 1, y, char=self.get_box((0, T, 0, T)), style=style
+            )
+        for x in x0, x1:
+            self.draw_line(
+                x, y0 + 1, x, y1 - 1, char=self.get_box((T, 0, T, 0)), style=style
+            )
+
     def _get_line_coordinates(
         self, x0: int, y0: int, x1: int, y1: int
     ) -> Iterator[tuple[int, int]]:
@@ -123,6 +150,7 @@ class DemoApp(App[None]):
 
     def on_mount(self) -> None:
         canvas = self.query_one(Canvas)
+        canvas.draw_rectangle_box(2, 10, 10, 2, thickness=2)
         canvas.draw_line(0, 0, 8, 8)
         canvas.draw_line(0, 19, 39, 0, char="X", style="red")
 
