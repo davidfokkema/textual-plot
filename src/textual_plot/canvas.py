@@ -1,3 +1,4 @@
+import enum
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
@@ -10,6 +11,12 @@ from textual.geometry import Region, Size
 from textual.message import Message
 from textual.strip import Strip
 from textual.widget import Widget
+
+
+class TextAlign(enum.Enum):
+    LEFT = enum.auto()
+    CENTER = enum.auto()
+    RIGHT = enum.auto()
 
 
 class Canvas(Widget):
@@ -108,6 +115,37 @@ class Canvas(Widget):
                 x, y0 + 1, x, y1 - 1, char=self.get_box((T, 0, T, 0)), style=style
             )
 
+    def write_text(
+        self,
+        x: int,
+        y: int,
+        text: str,
+        align: TextAlign = TextAlign.LEFT,
+        style: str = "white",
+    ) -> str:
+        if y < 0 or y >= self._canvas_size.height:
+            return
+
+        if align == TextAlign.RIGHT:
+            x -= len(text) - 1
+        elif align == TextAlign.CENTER:
+            div, mod = divmod(len(text), 2)
+            x -= div
+            if mod == 0:
+                # even number of characters, shift one to the right since I just
+                # like that better -- DF
+                x += 1
+
+        if x >= self._canvas_size.width or x <= -len(text):
+            return
+        elif x < 0:
+            self._buffer[y][0 : len(text) + x] = text[-x:]
+        elif (overrun := x + len(text) - self._canvas_size.width) > 0:
+            self._buffer[y][x:] = text[:-overrun]
+        else:
+            self._buffer[y][x : x + len(text)] = text
+        assert len(self._buffer[y]) == self._canvas_size.width
+
     def _get_line_coordinates(
         self, x0: int, y0: int, x1: int, y1: int
     ) -> Iterator[tuple[int, int]]:
@@ -149,15 +187,16 @@ class Canvas(Widget):
 
 class DemoApp(App[None]):
     def compose(self) -> ComposeResult:
-        yield Canvas()
-
-    @on(Canvas.Resize)
-    def redraw(self, event: Canvas.Resize) -> None:
-        canvas = event.canvas
-        canvas.reset(size=event.size)
+        yield (canvas := Canvas(40, 20))
         canvas.draw_rectangle_box(2, 10, 10, 2, thickness=2)
         canvas.draw_line(0, 0, 8, 8)
         canvas.draw_line(0, 19, 39, 0, char="X", style="red")
+        canvas.write_text(39, 1, "Hoi!d", align=TextAlign.CENTER)
+
+    # @on(Canvas.Resize)
+    # def redraw(self, event: Canvas.Resize) -> None:
+    # canvas = event.canvas
+    # canvas.reset(size=event.size)
 
 
 if __name__ == "__main__":
