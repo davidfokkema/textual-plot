@@ -66,8 +66,11 @@ class Canvas(Widget):
             return Strip([])
 
     def set_pixel(self, x: int, y: int, char: str, style: str) -> None:
-        self._buffer[y][x] = char
-        self._styles[y][x] = style
+        try:
+            self._buffer[y][x] = char
+            self._styles[y][x] = style
+        except IndexError:
+            pass
 
     def set_pixels(
         self, coordinates: Iterable[tuple[int, int]], char: str, style: str
@@ -146,17 +149,15 @@ class Canvas(Widget):
 
 class DemoApp(App[None]):
     def compose(self) -> ComposeResult:
-        yield Canvas(40, 20)
+        yield Canvas()
 
-    def on_mount(self) -> None:
-        canvas = self.query_one(Canvas)
+    @on(Canvas.Resize)
+    def redraw(self, event: Canvas.Resize) -> None:
+        canvas = event.canvas
+        canvas.reset(size=event.size)
         canvas.draw_rectangle_box(2, 10, 10, 2, thickness=2)
         canvas.draw_line(0, 0, 8, 8)
         canvas.draw_line(0, 19, 39, 0, char="X", style="red")
-
-    # @on(Canvas.Resize)
-    # def redraw(self, event: Canvas.Resize) -> None:
-    #     event.canvas.reset(size=event.size)
 
 
 if __name__ == "__main__":
