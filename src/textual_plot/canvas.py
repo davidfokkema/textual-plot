@@ -48,10 +48,16 @@ class Canvas(Widget):
     def reset(self, size: Size | None = None, refresh: bool = True) -> None:
         if size:
             self._canvas_size = size
+
+        if self._canvas_size:
             self._buffer = [
-                ["." for _ in range(size.width)] for _ in range(size.height)
+                ["." for _ in range(self._canvas_size.width)]
+                for _ in range(self._canvas_size.height)
             ]
-            self._styles = [["" for _ in range(size.width)] for _ in range(size.height)]
+            self._styles = [
+                ["" for _ in range(self._canvas_size.width)]
+                for _ in range(self._canvas_size.height)
+            ]
 
         if refresh:
             self.refresh()
@@ -74,12 +80,18 @@ class Canvas(Widget):
             return Strip([])
 
     def set_pixel(self, x: int, y: int, char: str, style: str) -> None:
-        try:
-            self._buffer[y][x] = char
-            self._styles[y][x] = style
-            self.refresh()
-        except IndexError:
-            pass
+        if (
+            x < 0
+            or y < 0
+            or x >= self._canvas_size.width
+            or y >= self._canvas_size.height
+        ):
+            # coordinates are outside canvas
+            return
+
+        self._buffer[y][x] = char
+        self._styles[y][x] = style
+        self.refresh()
 
     def set_pixels(
         self, coordinates: Iterable[tuple[int, int]], char: str, style: str
@@ -217,37 +229,44 @@ class Canvas(Widget):
 
 
 class DemoApp(App[None]):
+    _bx = 0
+    _bdx = 1
+    _by = 0
+    _bdy = 1
+    _tidx = 0
+
     def compose(self) -> ComposeResult:
-        yield (canvas := Canvas(60, 20))
+        yield Canvas(40, 20)
+
+    def on_mount(self) -> None:
+        self.set_interval(1 / 10, self.redraw_canvas)
+
+    @on(Canvas.Resize)
+    def resize(self, event: Canvas.Resize) -> None:
+        event.canvas.reset(size=event.size)
+
+    def redraw_canvas(self) -> None:
+        canvas = self.query_one(Canvas)
+        canvas.reset()
         canvas.draw_line(0, 0, 8, 8)
         canvas.draw_line(0, 19, 39, 0, char="X", style="red")
-        canvas.draw_rectangle_box(2, 12, 40, 4, thickness=2)
-        canvas.write_text(-2, 0, "".join([str(i % 10) for i in range(70)]))
         canvas.write_text(
-            -2,
-            1,
-            "[italic bold purple]Hi[/] [bold]there[/bold], are you [green]o[bold]k[/green]?[/]?",
+            self._tidx,
+            10,
+            "[green]This text is [bold]easy[/bold] to read",
         )
-        canvas.write_text(
-            1,
-            2,
-            "[italic bold purple]Hi[/] [bold]there[/bold], are you [green]o[bold]k[/green]?[/]?",
+        canvas.draw_rectangle_box(
+            self._bx, self._by, self._bx + 20, self._by + 10, thickness=2
         )
-        canvas.write_text(
-            30,
-            1,
-            "[italic bold purple]Hi[/] [bold]there[/bold], are you [green]o[bold]k[/green]?[/]?",
-        )
-        canvas.write_text(
-            38,
-            1,
-            "[italic bold purple]Hi[/] [bold]there[/bold], are you [green]o[bold]k[/green]?[/]?",
-        )
-
-    # @on(Canvas.Resize)
-    # def redraw(self, event: Canvas.Resize) -> None:
-    # canvas = event.canvas
-    # canvas.reset(size=event.size)
+        self._bx += self._bdx
+        if (self._bx < 0) or (self._bx + 20 >= canvas.size.width):
+            self._bdx *= -1
+        self._by += self._bdy
+        if (self._by < 0) or (self._by + 10 >= canvas.size.height):
+            self._bdy *= -1
+        self._tidx += 2
+        if self._tidx > canvas.size.width + 20:
+            self._tidx = -20
 
 
 if __name__ == "__main__":
