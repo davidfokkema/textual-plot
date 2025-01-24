@@ -136,15 +136,28 @@ class Canvas(Widget):
                 # like that better -- DF
                 x += 1
 
-        if x >= self._canvas_size.width or x <= -len(text):
+        if x <= -len(text) or x >= self._canvas_size.width:
+            # no part of text falls inside the canvas
             return
-        elif x < 0:
-            self._buffer[y][0 : len(text) + x] = text[-x:]
-        elif (overrun := x + len(text) - self._canvas_size.width) > 0:
-            self._buffer[y][x:] = text[:-overrun]
+
+        overflow_left = -x
+        overflow_right = x + len(text) - self._canvas_size.width
+        if overflow_left > 0:
+            buffer_left = 0
+            text_left = overflow_left
         else:
-            self._buffer[y][x : x + len(text)] = text
+            buffer_left = x
+            text_left = 0
+        if overflow_right > 0:
+            buffer_right = None
+            text_right = -overflow_right
+        else:
+            buffer_right = x + len(text)
+            text_right = None
+
+        self._buffer[y][buffer_left:buffer_right] = text[text_left:text_right]
         assert len(self._buffer[y]) == self._canvas_size.width
+        assert len(self._styles[y]) == self._canvas_size.width
 
     def _get_line_coordinates(
         self, x0: int, y0: int, x1: int, y1: int
@@ -187,11 +200,31 @@ class Canvas(Widget):
 
 class DemoApp(App[None]):
     def compose(self) -> ComposeResult:
-        yield (canvas := Canvas(40, 20))
+        yield (canvas := Canvas(60, 20))
         canvas.draw_rectangle_box(2, 10, 10, 2, thickness=2)
         canvas.draw_line(0, 0, 8, 8)
         canvas.draw_line(0, 19, 39, 0, char="X", style="red")
-        canvas.write_text(39, 1, "Hoi!d", align=TextAlign.CENTER)
+        canvas.write_text(-2, 0, "".join([str(i % 10) for i in range(70)]))
+        canvas.write_text(
+            -2,
+            1,
+            "Hi [bold]there[/bold], are you [green]ok[/green]?",
+        )
+        canvas.write_text(
+            1,
+            2,
+            "Hi [bold]there[/bold], are you [green]ok[/green]?",
+        )
+        canvas.write_text(
+            30,
+            1,
+            "Hi [bold]there[/bold], are you [green]ok[/green]?",
+        )
+        canvas.write_text(
+            38,
+            1,
+            "Hi [bold]there[/bold], are you [green]ok[/green]?",
+        )
 
     # @on(Canvas.Resize)
     # def redraw(self, event: Canvas.Resize) -> None:
