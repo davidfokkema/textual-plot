@@ -1,6 +1,7 @@
 import enum
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from math import floor
 
 from rich.segment import Segment
 from rich.style import Style
@@ -79,7 +80,7 @@ class Canvas(Widget):
         else:
             return Strip([])
 
-    def set_pixel(self, x: int, y: int, char: str, style: str) -> None:
+    def set_pixel(self, x: int, y: int, char="█", style="white") -> None:
         if (
             x < 0
             or y < 0
@@ -94,7 +95,7 @@ class Canvas(Widget):
         self.refresh()
 
     def set_pixels(
-        self, coordinates: Iterable[tuple[int, int]], char: str, style: str
+        self, coordinates: Iterable[tuple[int, int]], char="█", style="white"
     ) -> None:
         for x, y in coordinates:
             self.set_pixel(x, y, char, style)
@@ -269,5 +270,37 @@ class DemoApp(App[None]):
             self._tidx = -20
 
 
+class MapDemoApp(App[None]):
+    def compose(self) -> ComposeResult:
+        yield Canvas(20, 20)
+
+    def on_mount(self) -> None:
+        canvas = self.query_one(Canvas)
+        canvas.draw_rectangle_box(0, 0, 5, 21)
+        x = [-0.01, 0.01, 2.49, 2.51, 4.99, 5.01, 7.49, 7.51, 9.9, 10.0, 10.01]
+        y = [i for i in range(len(x))]
+        mapped_x = [map_coordinate_to_pixel(u, 0.0, 10.0, 1, 4) for u in x]
+        canvas.set_pixels(((a, b) for a, b in zip(mapped_x, y)))
+        for idx, value in enumerate(x):
+            canvas.write_text(x=10, y=idx, text=str(value))
+
+
+def map_coordinate_to_pixel(
+    x: float, a: float, b: float, first_pixel: int, last_pixel: int
+) -> int:
+    return floor(linear_mapper(x, a, b, first_pixel, last_pixel + 1))
+
+
+def linear_mapper(
+    x: float | int,
+    a: float | int,
+    b: float | int,
+    a_prime: float | int,
+    b_prime: float | int,
+) -> float:
+    return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
+
+
 if __name__ == "__main__":
-    DemoApp().run()
+    # DemoApp().run()
+    MapDemoApp().run()
