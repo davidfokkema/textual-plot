@@ -52,7 +52,7 @@ class Canvas(Widget):
 
         if self._canvas_size:
             self._buffer = [
-                ["." for _ in range(self._canvas_size.width)]
+                [" " for _ in range(self._canvas_size.width)]
                 for _ in range(self._canvas_size.height)
             ]
             self._styles = [
@@ -65,7 +65,7 @@ class Canvas(Widget):
 
     def render_line(self, y: int) -> Strip:
         if self._canvas_size is None:
-            return Strip([Segment("." * self.size.width)])
+            return Strip([Segment("")])
         if y < self._canvas_size.height:
             return Strip(
                 [
@@ -285,33 +285,6 @@ class MapDemoApp(App[None]):
         canvas.set_pixels((pixel for pixel in pixels if pixel is not None))
         for idx, value in enumerate(x):
             canvas.write_text(x=10, y=idx + 1, text=str(value))
-
-
-def map_coordinate_to_pixel(
-    x: float,
-    y: float,
-    xmin: float,
-    xmax: float,
-    ymin: float,
-    ymax: float,
-    region: Region,
-) -> tuple[int, int]:
-    x = floor(linear_mapper(x, xmin, xmax, region.x, region.right))
-    y = floor(linear_mapper(y, ymin, ymax, region.y, region.bottom))
-    if region.contains(x, y):
-        return x, y
-    else:
-        return None
-
-
-def linear_mapper(
-    x: float | int,
-    a: float | int,
-    b: float | int,
-    a_prime: float | int,
-    b_prime: float | int,
-) -> float:
-    return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
 
 class EmptyDemoApp(App[None]):

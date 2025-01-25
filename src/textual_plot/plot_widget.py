@@ -1,5 +1,6 @@
 import enum
 from dataclasses import dataclass
+from math import ceil, floor
 from typing import Iterator, Self
 
 import numpy as np
@@ -82,6 +83,12 @@ class PlotWidget(Widget):
     def on_mount(self) -> None:
         self._update_margin_sizes()
 
+    def _on_resize(self) -> None:
+        self.call_later(self.refresh)
+
+    def _on_canvas_resize(self, event: Canvas.Resize) -> None:
+        event.canvas.reset(size=event.size)
+
     def _update_margin_sizes(self) -> None:
         grid = self.query_one(Grid)
         grid.styles.grid_columns = f"{self._margin_left} 1fr"
@@ -127,15 +134,12 @@ class PlotWidget(Widget):
         )
 
     def _render_plot(self) -> None:
-        self._plot_size = self.size - (
-            self._margin_left + self._margin_right,
-            self._margin_top + self._margin_bottom,
-        )
+        if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
+            return
 
-        self._canvas = [
-            [Segment(" ") for _ in range(self._plot_size.width)]
-            for _ in range(self._plot_size.height)
-        ]
+        canvas.draw_rectangle_box(
+            0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
+        )
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
                 self._render_scatter_plot(dataset)
@@ -143,18 +147,29 @@ class PlotWidget(Widget):
                 self._render_line_plot(dataset)
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
-        x, y = self._map_coordinates_to_pixels(dataset.x, dataset.y)
+        canvas = self.query_one("#plot", Canvas)
+        pixels = [
+            map_coordinate_to_pixel(
+                xi,
+                yi,
+                self._x_min,
+                self._x_max,
+                self._y_min,
+                self._y_max,
+                Region(
+                    1,
+                    1,
+                    canvas.size.width - 2,
+                    canvas.size.height - 2,
+                ),
+            )
+            for xi, yi in zip(dataset.x, dataset.y)
+        ]
 
-        for px, py in zip(x, y):
-            if px < 0 or py < 0:
+        for pixel in pixels:
+            if pixel is None:
                 continue
-            try:
-                self._canvas[py][px] = Segment(
-                    text=dataset.marker, style=dataset.marker_style
-                )
-            except IndexError:
-                # data point is outside plot area
-                pass
+            canvas.set_pixel(*pixel, char=dataset.marker, style="white")
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
         x, y = self._map_coordinates_to_pixels(dataset.x, dataset.y)
@@ -197,6 +212,35 @@ class PlotWidget(Widget):
         return xp, yp
 
 
+def map_coordinate_to_pixel(
+    x: float,
+    y: float,
+    xmin: float,
+    xmax: float,
+    ymin: float,
+    ymax: float,
+    region: Region,
+) -> tuple[int, int]:
+    x = floor(linear_mapper(x, xmin, xmax, region.x, region.right))
+    # positive y direction is reversed
+    y = ceil(linear_mapper(y, ymin, ymax, region.bottom - 1, region.y - 1))
+    # y = floor(linear_mapper(y, ymin, ymax, region.y, region.bottom))
+    if region.contains(x, y):
+        return x, y
+    else:
+        return None
+
+
+def linear_mapper(
+    x: float | int,
+    a: float | int,
+    b: float | int,
+    a_prime: float | int,
+    b_prime: float | int,
+) -> float:
+    return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
+
+
 class DemoApp(App[None]):
     _phi: float = 0.0
 
@@ -204,17 +248,18 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        self.set_interval(1 / 24, self.plot_refresh)
+        # self.set_interval(1 / 24, self.plot_refresh)
+        self.call_after_refresh(self.plot_refresh)
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
         plot.clear()
-        # plot.scatter(
-        #     x=[0, 1, 2, 3, 4, 5, 9.99],
-        #     y=[0, 1, 4, 9, 16, 25, 29.99],
-        #     marker_style="blue",
-        #     marker="*",
-        # )
+        plot.scatter(
+            x=[0, 1, 2, 3, 4, 5, 9.99],
+            y=[0, 1, 4, 9, 16, 25, 29.99],
+            marker_style="blue",
+            marker="*",
+        )
         # x = np.linspace(0, 10, 17)
         # plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
         # plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
