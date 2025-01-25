@@ -65,7 +65,9 @@ class Canvas(Widget):
 
     def render_lines(self, crop: Region) -> list[Strip]:
         if self._canvas_size is None:
-            return []
+            return [
+                Strip([Segment("." * self._size.width, style=Style(color="white"))])
+            ] * self._size.height
         return super().render_lines(crop)
 
     def render_line(self, y: int) -> Strip:
@@ -318,6 +320,18 @@ def linear_mapper(
     return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
 
+class EmptyDemoApp(App[None]):
+    CSS = """
+        Canvas {
+            border: solid;
+        }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Canvas()
+
+
 if __name__ == "__main__":
     # DemoApp().run()
-    MapDemoApp().run()
+    # MapDemoApp().run()
+    EmptyDemoApp().run()
