@@ -279,16 +279,33 @@ class MapDemoApp(App[None]):
         canvas.draw_rectangle_box(0, 0, 5, 21)
         x = [-0.01, 0.01, 2.49, 2.51, 4.99, 5.01, 7.49, 7.51, 9.9, 10.0, 10.01]
         y = [i for i in range(len(x))]
-        mapped_x = [map_coordinate_to_pixel(u, 0.0, 10.0, 1, 4) for u in x]
-        canvas.set_pixels(((a, b) for a, b in zip(mapped_x, y)))
+        pixels = [
+            map_coordinate_to_pixel(
+                xi, yi, 0.0, 10.0, 0.0, 10.0, Region(1, 1, width=4, height=10)
+            )
+            for xi, yi in zip(x, y)
+        ]
+        print(pixels)
+        canvas.set_pixels((pixel for pixel in pixels if pixel is not None))
         for idx, value in enumerate(x):
-            canvas.write_text(x=10, y=idx, text=str(value))
+            canvas.write_text(x=10, y=idx + 1, text=str(value))
 
 
 def map_coordinate_to_pixel(
-    x: float, a: float, b: float, first_pixel: int, last_pixel: int
-) -> int:
-    return floor(linear_mapper(x, a, b, first_pixel, last_pixel + 1))
+    x: float,
+    y: float,
+    xmin: float,
+    xmax: float,
+    ymin: float,
+    ymax: float,
+    region: Region,
+) -> tuple[int, int]:
+    x = floor(linear_mapper(x, xmin, xmax, region.x, region.right))
+    y = floor(linear_mapper(y, ymin, ymax, region.y, region.bottom))
+    if region.contains(x, y):
+        return x, y
+    else:
+        return None
 
 
 def linear_mapper(
