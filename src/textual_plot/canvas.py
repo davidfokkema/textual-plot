@@ -28,6 +28,7 @@ class Canvas(Widget):
         size: Size
 
     _canvas_size: Size | None = None
+    _canvas_region: Region | None = None
     get_box = BOX_CHARACTERS.__getitem__
 
     def __init__(
@@ -49,6 +50,7 @@ class Canvas(Widget):
     def reset(self, size: Size | None = None, refresh: bool = True) -> None:
         if size:
             self._canvas_size = size
+            self._canvas_region = Region(0, 0, size.width, size.height)
 
         if self._canvas_size:
             self._buffer = [
@@ -77,12 +79,7 @@ class Canvas(Widget):
             return Strip([])
 
     def set_pixel(self, x: int, y: int, char="█", style="white") -> None:
-        if (
-            x < 0
-            or y < 0
-            or x >= self._canvas_size.width
-            or y >= self._canvas_size.height
-        ):
+        if not self._canvas_region.contains(x, y):
             # coordinates are outside canvas
             return
 

@@ -31,13 +31,13 @@ class DataSet:
 
 @dataclass
 class LinePlot(DataSet):
-    line_style: Style
+    line_style: str
 
 
 @dataclass
 class ScatterPlot(DataSet):
     marker: str
-    marker_style: Style
+    marker_style: str
 
 
 class TextAlign(enum.Enum):
@@ -65,14 +65,12 @@ class PlotWidget(Widget):
     _x_max: float = 10.0
     _y_min: float = 0.0
     _y_max: float = 30.0
-    _margin_top: int = 1
-    _margin_right: int = 1
-    _margin_bottom: int = 5
-    _margin_left: int = 10
+    _margin_bottom: int = 0
+    _margin_left: int = 0
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
-        self.clear()
+        self._datasets = []
 
     def compose(self) -> ComposeResult:
         with Grid():
@@ -96,6 +94,7 @@ class PlotWidget(Widget):
 
     def clear(self) -> None:
         self._datasets = []
+        self.query_one("#plot", Canvas).reset()
 
     def plot(
         self,
@@ -104,7 +103,7 @@ class PlotWidget(Widget):
         line_style: str = "white",
     ) -> None:
         self._datasets.append(
-            LinePlot(x=np.array(x), y=np.array(y), line_style=Style.parse(line_style))
+            LinePlot(x=np.array(x), y=np.array(y), line_style=line_style)
         )
         self.refresh()
 
@@ -116,7 +115,7 @@ class PlotWidget(Widget):
                 x=np.array(x),
                 y=np.array(y),
                 marker=marker,
-                marker_style=Style.parse(marker_style),
+                marker_style=marker_style,
             )
         )
         self.refresh()
@@ -137,14 +136,15 @@ class PlotWidget(Widget):
         if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
             return
 
-        canvas.draw_rectangle_box(
-            0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
-        )
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
                 self._render_scatter_plot(dataset)
             elif isinstance(dataset, LinePlot):
                 self._render_line_plot(dataset)
+
+        canvas.draw_rectangle_box(
+            0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
+        )
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -167,22 +167,30 @@ class PlotWidget(Widget):
         ]
 
         for pixel in pixels:
-            if pixel is None:
-                continue
-            canvas.set_pixel(*pixel, char=dataset.marker, style="white")
+            canvas.set_pixel(*pixel, char=dataset.marker, style=dataset.marker_style)
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
-        x, y = self._map_coordinates_to_pixels(dataset.x, dataset.y)
+        canvas = self.query_one("#plot", Canvas)
+        pixels = [
+            map_coordinate_to_pixel(
+                xi,
+                yi,
+                self._x_min,
+                self._x_max,
+                self._y_min,
+                self._y_max,
+                Region(
+                    1,
+                    1,
+                    canvas.size.width - 2,
+                    canvas.size.height - 2,
+                ),
+            )
+            for xi, yi in zip(dataset.x, dataset.y)
+        ]
 
-        for i in range(1, len(x)):
-            for px, py in self.bresenham_line(x[i - 1], y[i - 1], x[i], y[i]):
-                if px < 0 or py < 0:
-                    continue
-                try:
-                    self._canvas[py][px] = Segment(text="█", style=dataset.line_style)
-                except IndexError:
-                    # data point is outside plot area
-                    pass
+        for i in range(1, len(pixels)):
+            canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
@@ -225,10 +233,7 @@ def map_coordinate_to_pixel(
     # positive y direction is reversed
     y = ceil(linear_mapper(y, ymin, ymax, region.bottom - 1, region.y - 1))
     # y = floor(linear_mapper(y, ymin, ymax, region.y, region.bottom))
-    if region.contains(x, y):
-        return x, y
-    else:
-        return None
+    return x, y
 
 
 def linear_mapper(
@@ -248,8 +253,8 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        # self.set_interval(1 / 24, self.plot_refresh)
-        self.call_after_refresh(self.plot_refresh)
+        self.set_interval(1 / 24, self.plot_refresh)
+        # self.call_after_refresh(self.plot_refresh)
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
@@ -260,12 +265,11 @@ class DemoApp(App[None]):
             marker_style="blue",
             marker="*",
         )
-        # x = np.linspace(0, 10, 17)
-        # plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
-        # plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
+        x = np.linspace(0, 10, 17)
+        plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
+        plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
 
-        # plot.refresh()
-        # self._phi += 0.1
+        self._phi += 0.1
 
 
 if __name__ == "__main__":
