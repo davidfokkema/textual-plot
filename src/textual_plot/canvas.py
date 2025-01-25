@@ -63,15 +63,9 @@ class Canvas(Widget):
         if refresh:
             self.refresh()
 
-    def render_lines(self, crop: Region) -> list[Strip]:
-        if self._canvas_size is None:
-            return [
-                Strip([Segment("." * self._size.width, style=Style(color="white"))])
-            ] * self._size.height
-        return super().render_lines(crop)
-
     def render_line(self, y: int) -> Strip:
-        assert self._canvas_size is not None
+        if self._canvas_size is None:
+            return Strip([Segment("." * self.size.width)])
         if y < self._canvas_size.height:
             return Strip(
                 [
