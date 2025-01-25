@@ -259,13 +259,13 @@ class DemoApp(App[None]):
             self._bx, self._by, self._bx + 20, self._by + 10, thickness=2
         )
         self._bx += self._bdx
-        if (self._bx < 0) or (self._bx + 20 >= canvas.size.width):
+        if (self._bx <= 0) or (self._bx + 20 >= canvas.size.width - 1):
             self._bdx *= -1
         self._by += self._bdy
-        if (self._by < 0) or (self._by + 10 >= canvas.size.height):
+        if (self._by <= 0) or (self._by + 10 >= canvas.size.height - 1):
             self._bdy *= -1
         self._tidx += 2
-        if self._tidx > canvas.size.width + 20:
+        if self._tidx >= canvas.size.width + 20:
             self._tidx = -20
 
 
