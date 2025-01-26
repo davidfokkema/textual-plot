@@ -235,6 +235,21 @@ def map_coordinate_to_pixel(
     return x, y
 
 
+def map_pixel_to_coordinate(
+    px: int,
+    py: int,
+    xmin: float,
+    xmax: float,
+    ymin: float,
+    ymax: float,
+    region: Region,
+) -> tuple[float, float]:
+    x = linear_mapper(px + 0.5, region.x, region.right, xmin, xmax)
+    # positive y direction is reversed
+    y = linear_mapper(py + 0.5, region.bottom, region.y, ymin, ymax)
+    return x, y
+
+
 def linear_mapper(
     x: float | int,
     a: float | int,

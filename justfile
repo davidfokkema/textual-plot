@@ -3,3 +3,6 @@ demo:
 
 typecheck:
     uv run mypy -p textual_plot --strict
+
+test:
+    uv run pytest
