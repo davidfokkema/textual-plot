@@ -6,3 +6,9 @@ typecheck:
 
 test:
     uv run pytest
+
+format:
+    uvx ruff format
+
+fix:
+    uvx ruff check --fix
