@@ -20,7 +20,7 @@ from textual.widgets import Placeholder
 
 from textual_plot.canvas import Canvas
 
-ZOOM_FACTOR = 0.01
+ZOOM_FACTOR = 0.05
 
 
 @dataclass
@@ -65,8 +65,8 @@ class PlotWidget(Widget):
     _x_max: float = 10.0
     _y_min: float = 0.0
     _y_max: float = 30.0
-    _margin_bottom: int = 0
-    _margin_left: int = 0
+    _margin_bottom: int = 3
+    _margin_left: int = 10
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -156,12 +156,7 @@ class PlotWidget(Widget):
                 self._x_max,
                 self._y_min,
                 self._y_max,
-                Region(
-                    1,
-                    1,
-                    canvas.size.width - 2,
-                    canvas.size.height - 2,
-                ),
+                region=canvas.scale_rectangle,
             )
             for xi, yi in zip(dataset.x, dataset.y)
         ]
@@ -179,12 +174,7 @@ class PlotWidget(Widget):
                 self._x_max,
                 self._y_min,
                 self._y_max,
-                Region(
-                    1,
-                    1,
-                    canvas.size.width - 2,
-                    canvas.size.height - 2,
-                ),
+                region=canvas.scale_rectangle,
             )
             for xi, yi in zip(dataset.x, dataset.y)
         ]
@@ -195,29 +185,40 @@ class PlotWidget(Widget):
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
         if (offset := event.get_content_offset(self)) is not None:
-            x, y = self._content_offset_to_plot_coordinate(offset)
+            canvas = self.query_one("#plot", Canvas)
+            x, y = map_pixel_to_coordinate(
+                offset.x,
+                offset.y,
+                self._x_min,
+                self._x_max,
+                self._y_min,
+                self._y_max,
+                region=canvas.scale_rectangle,
+            )
             self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
-            self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
+            self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
             self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
-            self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
-        self.refresh()
+            self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+            self.refresh()
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollDown) -> None:
         if (offset := event.get_content_offset(self)) is not None:
-            x, y = self._content_offset_to_plot_coordinate(offset)
+            canvas = self.query_one("#plot", Canvas)
+            x, y = map_pixel_to_coordinate(
+                offset.x,
+                offset.y,
+                self._x_min,
+                self._x_max,
+                self._y_min,
+                self._y_max,
+                region=canvas.scale_rectangle,
+            )
             self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
-            self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
+            self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
             self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
-            self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
-        self.refresh()
-
-    def _content_offset_to_plot_coordinate(self, offset):
-        x = offset.x - self._margin_left
-        y = self._plot_size.height - (offset.y - self._margin_top)
-        xp = self._linear_mapper(x, 0, self._plot_size.width, self._x_min, self._x_max)
-        yp = self._linear_mapper(y, 0, self._plot_size.height, self._y_min, self._y_max)
-        return xp, yp
+            self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
+            self.refresh()
 
 
 def map_coordinate_to_pixel(

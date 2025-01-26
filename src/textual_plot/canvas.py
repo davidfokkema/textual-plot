@@ -29,6 +29,7 @@ class Canvas(Widget):
 
     _canvas_size: Size | None = None
     _canvas_region: Region | None = None
+    scale_rectangle: Region | None = None
     get_box = BOX_CHARACTERS.__getitem__
 
     def __init__(
@@ -51,6 +52,7 @@ class Canvas(Widget):
         if size:
             self._canvas_size = size
             self._canvas_region = Region(0, 0, size.width, size.height)
+            self.scale_rectangle = Region(1, 1, size.width - 2, size.height - 2)
 
         if self._canvas_size:
             self._buffer = [
