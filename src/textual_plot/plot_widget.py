@@ -232,7 +232,6 @@ def map_coordinate_to_pixel(
     x = floor(linear_mapper(x, xmin, xmax, region.x, region.right))
     # positive y direction is reversed
     y = ceil(linear_mapper(y, ymin, ymax, region.bottom - 1, region.y - 1))
-    # y = floor(linear_mapper(y, ymin, ymax, region.y, region.bottom))
     return x, y
 
 
