@@ -1,7 +1,6 @@
 import enum
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from math import floor
 
 from rich.segment import Segment
 from rich.style import Style
@@ -265,39 +264,5 @@ class DemoApp(App[None]):
             self._tidx = -20
 
 
-class MapDemoApp(App[None]):
-    def compose(self) -> ComposeResult:
-        yield Canvas(20, 20)
-
-    def on_mount(self) -> None:
-        canvas = self.query_one(Canvas)
-        canvas.draw_rectangle_box(0, 0, 5, 21)
-        x = [-0.01, 0.01, 2.49, 2.51, 4.99, 5.01, 7.49, 7.51, 9.9, 10.0, 10.01]
-        y = [i for i in range(len(x))]
-        pixels = [
-            map_coordinate_to_pixel(
-                xi, yi, 0.0, 10.0, 0.0, 10.0, Region(1, 1, width=4, height=10)
-            )
-            for xi, yi in zip(x, y)
-        ]
-        print(pixels)
-        canvas.set_pixels((pixel for pixel in pixels if pixel is not None))
-        for idx, value in enumerate(x):
-            canvas.write_text(x=10, y=idx + 1, text=str(value))
-
-
-class EmptyDemoApp(App[None]):
-    CSS = """
-        Canvas {
-            border: solid;
-        }
-    """
-
-    def compose(self) -> ComposeResult:
-        yield Canvas()
-
-
 if __name__ == "__main__":
-    # DemoApp().run()
-    # MapDemoApp().run()
-    EmptyDemoApp().run()
+    DemoApp().run()

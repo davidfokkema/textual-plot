@@ -1,22 +1,16 @@
 import enum
 from dataclasses import dataclass
 from math import ceil, floor
-from typing import Iterator, Self
+from typing import Self
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from rich.segment import Segment
-from rich.style import Style
 from textual import on
-from textual._box_drawing import BOX_CHARACTERS
 from textual.app import App, ComposeResult
-from textual.color import Color
-from textual.containers import Grid, Horizontal
+from textual.containers import Grid
 from textual.events import MouseScrollDown, MouseScrollUp
-from textual.geometry import Region, Size
-from textual.strip import Strip
+from textual.geometry import Region
 from textual.widget import Widget
-from textual.widgets import Placeholder
 
 from textual_plot.canvas import Canvas
 
