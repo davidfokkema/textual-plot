@@ -13,6 +13,8 @@ from textual.message import Message
 from textual.strip import Strip
 from textual.widget import Widget
 
+get_box = BOX_CHARACTERS.__getitem__
+
 
 class TextAlign(enum.Enum):
     LEFT = enum.auto()
@@ -29,16 +31,15 @@ class Canvas(Widget):
     _canvas_size: Size | None = None
     _canvas_region: Region | None = None
     scale_rectangle: Region | None = None
-    get_box = BOX_CHARACTERS.__getitem__
 
     def __init__(
         self,
         width: int | None = None,
         height: int | None = None,
-        name=None,
-        id=None,
-        classes=None,
-        disabled=False,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+        disabled: bool = False,
     ):
         super().__init__(name=name, id=id, classes=classes, disabled=disabled)
         if width is not None and height is not None:
@@ -79,7 +80,8 @@ class Canvas(Widget):
         else:
             return Strip([])
 
-    def set_pixel(self, x: int, y: int, char="█", style="white") -> None:
+    def set_pixel(self, x: int, y: int, char: str = "█", style: str = "white") -> None:
+        assert self._canvas_region is not None
         if not self._canvas_region.contains(x, y):
             # coordinates are outside canvas
             return
@@ -89,13 +91,16 @@ class Canvas(Widget):
         self.refresh()
 
     def set_pixels(
-        self, coordinates: Iterable[tuple[int, int]], char="█", style="white"
+        self,
+        coordinates: Iterable[tuple[int, int]],
+        char: str = "█",
+        style: str = "white",
     ) -> None:
         for x, y in coordinates:
             self.set_pixel(x, y, char, style)
 
     def draw_line(
-        self, x0: int, y0: int, x1: int, y1: int, char="█", style="white"
+        self, x0: int, y0: int, x1: int, y1: int, char: str = "█", style: str = "white"
     ) -> None:
         self.set_pixels(self._get_line_coordinates(x0, y0, x1, y1), char, style)
 
@@ -111,17 +116,17 @@ class Canvas(Widget):
         T = thickness
         x0, x1 = sorted((x0, x1))
         y0, y1 = sorted((y0, y1))
-        self.set_pixel(x0, y0, char=self.get_box((0, T, T, 0)), style=style)
-        self.set_pixel(x1, y0, char=self.get_box((0, 0, T, T)), style=style)
-        self.set_pixel(x1, y1, char=self.get_box((T, 0, 0, T)), style=style)
-        self.set_pixel(x0, y1, char=self.get_box((T, T, 0, 0)), style=style)
+        self.set_pixel(x0, y0, char=get_box((0, T, T, 0)), style=style)
+        self.set_pixel(x1, y0, char=get_box((0, 0, T, T)), style=style)
+        self.set_pixel(x1, y1, char=get_box((T, 0, 0, T)), style=style)
+        self.set_pixel(x0, y1, char=get_box((T, T, 0, 0)), style=style)
         for y in y0, y1:
             self.draw_line(
-                x0 + 1, y, x1 - 1, y, char=self.get_box((0, T, 0, T)), style=style
+                x0 + 1, y, x1 - 1, y, char=get_box((0, T, 0, T)), style=style
             )
         for x in x0, x1:
             self.draw_line(
-                x, y0 + 1, x, y1 - 1, char=self.get_box((T, 0, T, 0)), style=style
+                x, y0 + 1, x, y1 - 1, char=get_box((T, 0, T, 0)), style=style
             )
 
     def write_text(
@@ -130,8 +135,8 @@ class Canvas(Widget):
         y: int,
         text: str,
         align: TextAlign = TextAlign.LEFT,
-        style: str = "white",
-    ) -> str:
+    ) -> None:
+        assert self._canvas_size is not None
         if y < 0 or y >= self._canvas_size.height:
             return
 

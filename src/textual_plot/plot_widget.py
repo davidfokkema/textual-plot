@@ -142,6 +142,7 @@ class PlotWidget(Widget):
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
+        assert canvas.scale_rectangle is not None
         pixels = [
             map_coordinate_to_pixel(
                 xi,
@@ -160,6 +161,7 @@ class PlotWidget(Widget):
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
         canvas = self.query_one("#plot", Canvas)
+        assert canvas.scale_rectangle is not None
         pixels = [
             map_coordinate_to_pixel(
                 xi,
@@ -181,6 +183,7 @@ class PlotWidget(Widget):
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
+            assert canvas.scale_rectangle is not None
             x, y = map_pixel_to_coordinate(
                 offset.x,
                 offset.y,
@@ -203,6 +206,7 @@ class PlotWidget(Widget):
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
+            assert canvas.scale_rectangle is not None
             x, y = map_pixel_to_coordinate(
                 offset.x,
                 offset.y,
@@ -223,8 +227,8 @@ class PlotWidget(Widget):
 
 
 def map_coordinate_to_pixel(
-    x: float,
-    y: float,
+    x: float | np.floating,
+    y: float | np.floating,
     xmin: float,
     xmax: float,
     ymin: float,
@@ -249,16 +253,16 @@ def map_pixel_to_coordinate(
     x = linear_mapper(px + 0.5, region.x, region.right, xmin, xmax)
     # positive y direction is reversed
     y = linear_mapper(py + 0.5, region.bottom, region.y, ymin, ymax)
-    return x, y
+    return float(x), float(y)
 
 
 def linear_mapper(
-    x: float | int,
+    x: float | np.floating | int,
     a: float | int,
     b: float | int,
     a_prime: float | int,
     b_prime: float | int,
-) -> float:
+) -> float | np.floating:
     return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
 
