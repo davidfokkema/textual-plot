@@ -179,6 +179,7 @@ class PlotWidget(Widget):
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
         if (offset := event.get_content_offset(self)) is not None:
+            widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
             x, y = map_pixel_to_coordinate(
                 offset.x,
@@ -189,15 +190,18 @@ class PlotWidget(Widget):
                 self._y_max,
                 region=canvas.scale_rectangle,
             )
-            self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
-            self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
-            self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
-            self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+            if widget.id in ("plot", "bottom-margin"):
+                self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
+                self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
+            if widget.id in ("plot", "left-margin"):
+                self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+                self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
             self.refresh()
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollDown) -> None:
         if (offset := event.get_content_offset(self)) is not None:
+            widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
             x, y = map_pixel_to_coordinate(
                 offset.x,
@@ -208,10 +212,13 @@ class PlotWidget(Widget):
                 self._y_max,
                 region=canvas.scale_rectangle,
             )
-            self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
-            self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
-            self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
-            self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
+
+            if widget.id in ("plot", "bottom-margin"):
+                self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
+                self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
+            if widget.id in ("plot", "left-margin"):
+                self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
+                self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
             self.refresh()
 
 
