@@ -274,7 +274,7 @@ class DemoApp(App[None]):
             marker_style="blue",
             marker="*",
         )
-        x = np.linspace(0, 10, 17)
+        x = np.linspace(0, 10, 200)
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
         plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
 
