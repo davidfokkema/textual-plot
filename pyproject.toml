@@ -3,14 +3,9 @@ name = "textual-plot"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "David Fokkema", email = "davidfokkema@icloud.com" }
-]
+authors = [{ name = "David Fokkema", email = "davidfokkema@icloud.com" }]
 requires-python = ">=3.12"
-dependencies = [
-    "numpy>=2.2.1",
-    "textual>=1.0.0",
-]
+dependencies = ["numpy>=2.2.1", "textual>=1.0.0"]
 
 [build-system]
 requires = ["hatchling"]
@@ -23,3 +18,6 @@ dev = [
     "rust-just>=1.38.0",
     "textual-dev>=1.7.0",
 ]
+
+[tool.mypy]
+plugins = "numpy.typing.mypy_plugin"
