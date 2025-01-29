@@ -30,6 +30,7 @@ class Canvas(Widget):
 
     _canvas_size: Size | None = None
     _canvas_region: Region | None = None
+    # FIXME: move this to PlotWidget, it has no place here.
     scale_rectangle: Region | None = None
 
     def __init__(
@@ -98,6 +99,9 @@ class Canvas(Widget):
     ) -> None:
         for x, y in coordinates:
             self.set_pixel(x, y, char, style)
+
+    def get_pixel(self, x: int, y: int) -> tuple[str, str]:
+        return self._buffer[y][x], self._styles[y][x]
 
     def draw_line(
         self, x0: int, y0: int, x1: int, y1: int, char: str = "█", style: str = "white"

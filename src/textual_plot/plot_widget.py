@@ -1,4 +1,3 @@
-import enum
 from dataclasses import dataclass
 from math import ceil, floor
 from typing import Self
@@ -6,13 +5,14 @@ from typing import Self
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from textual import on
+from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import App, ComposeResult
 from textual.containers import Grid
 from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
 
-from textual_plot.canvas import Canvas
+from textual_plot.canvas import Canvas, TextAlign, get_box
 
 ZOOM_FACTOR = 0.05
 
@@ -32,12 +32,6 @@ class LinePlot(DataSet):
 class ScatterPlot(DataSet):
     marker: str
     marker_style: str
-
-
-class TextAlign(enum.Enum):
-    LEFT = enum.auto()
-    CENTER = enum.auto()
-    RIGHT = enum.auto()
 
 
 class PlotWidget(Widget):
@@ -141,6 +135,8 @@ class PlotWidget(Widget):
         canvas.draw_rectangle_box(
             0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
         )
+        self._render_x_ticks()
+        self._render_y_ticks()
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -171,6 +167,44 @@ class PlotWidget(Widget):
 
         for i in range(1, len(pixels)):
             canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
+
+    def _render_x_ticks(self) -> None:
+        canvas = self.query_one("#plot", Canvas)
+        bottom_margin = self.query_one("#bottom-margin", Canvas)
+        bottom_margin.reset()
+
+        x_ticks = np.linspace(self._x_min, self._x_max, 5)
+        for tick in x_ticks:
+            x, _ = self.get_pixel_from_coordinate(tick, 0)
+            align = TextAlign.CENTER
+            if tick == self._x_min:
+                x -= 1
+            elif tick == self._x_max:
+                align = TextAlign.RIGHT
+            pixel = canvas.get_pixel(x, canvas.scale_rectangle.bottom)[0]
+            for quad, v in BOX_CHARACTERS.items():
+                if v == pixel:
+                    break
+            new_quad = combine_quads(quad, ((0, 0, 2, 0)))
+            canvas.set_pixel(x, canvas.scale_rectangle.bottom, BOX_CHARACTERS[new_quad])
+            bottom_margin.write_text(x + self._margin_left, 0, f"{tick:.1f}", align)
+
+    def _render_y_ticks(self) -> None:
+        canvas = self.query_one("#plot", Canvas)
+        left_margin = self.query_one("#left-margin", Canvas)
+        left_margin.reset()
+
+        y_ticks = np.linspace(self._y_min, self._y_max, 5)
+        for tick in y_ticks:
+            _, y = self.get_pixel_from_coordinate(0, tick)
+            align = TextAlign.RIGHT
+            pixel = canvas.get_pixel(0, y)[0]
+            for quad, v in BOX_CHARACTERS.items():
+                if v == pixel:
+                    break
+            new_quad = combine_quads(quad, ((0, 0, 0, 2)))
+            canvas.set_pixel(0, y, BOX_CHARACTERS[new_quad])
+            left_margin.write_text(self._margin_left - 2, y, f"{tick:.1f}", align)
 
     def get_pixel_from_coordinate(
         self, x: np.floating, y: np.floating
