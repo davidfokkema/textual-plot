@@ -8,7 +8,7 @@ from numpy.typing import ArrayLike, NDArray
 from textual import on
 from textual.app import App, ComposeResult
 from textual.containers import Grid
-from textual.events import MouseScrollDown, MouseScrollUp
+from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
 
@@ -61,6 +61,8 @@ class PlotWidget(Widget):
     _y_max: float = 30.0
     _margin_bottom: int = 3
     _margin_left: int = 10
+
+    _is_dragging: bool = False
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
@@ -163,20 +165,42 @@ class PlotWidget(Widget):
         canvas = self.query_one("#plot", Canvas)
         assert canvas.scale_rectangle is not None
         pixels = [
-            map_coordinate_to_pixel(
-                xi,
-                yi,
-                self._x_min,
-                self._x_max,
-                self._y_min,
-                self._y_max,
-                region=canvas.scale_rectangle,
-            )
+            self.get_pixel_from_coordinate(xi, yi)
             for xi, yi in zip(dataset.x, dataset.y)
         ]
 
         for i in range(1, len(pixels)):
             canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
+
+    def get_pixel_from_coordinate(
+        self, x: np.floating, y: np.floating
+    ) -> tuple[int, int]:
+        assert (
+            scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
+        ) is not None
+        return map_coordinate_to_pixel(
+            x,
+            y,
+            self._x_min,
+            self._x_max,
+            self._y_min,
+            self._y_max,
+            region=scale_rectangle,
+        )
+
+    def get_coordinate_from_pixel(self, x: int, y: int) -> tuple[float, float]:
+        assert (
+            scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
+        ) is not None
+        return map_pixel_to_coordinate(
+            x,
+            y,
+            self._x_min,
+            self._x_max,
+            self._y_min,
+            self._y_max,
+            region=scale_rectangle,
+        )
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
@@ -189,15 +213,7 @@ class PlotWidget(Widget):
                 # zooming, we want to have the x-coordinate relative to the plot
                 # canvas, not relative to the bottom margin.
                 offset = event.screen_offset - self.screen.get_offset(canvas)
-            x, y = map_pixel_to_coordinate(
-                offset.x,
-                offset.y,
-                self._x_min,
-                self._x_max,
-                self._y_min,
-                self._y_max,
-                region=canvas.scale_rectangle,
-            )
+            x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
             if widget.id in ("plot", "bottom-margin"):
                 self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
                 self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
@@ -217,16 +233,7 @@ class PlotWidget(Widget):
                 # zooming, we want to have the x-coordinate relative to the plot
                 # canvas, not relative to the bottom margin.
                 offset = event.screen_offset - self.screen.get_offset(canvas)
-            x, y = map_pixel_to_coordinate(
-                offset.x,
-                offset.y,
-                self._x_min,
-                self._x_max,
-                self._y_min,
-                self._y_max,
-                region=canvas.scale_rectangle,
-            )
-
+            x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
             if widget.id in ("plot", "bottom-margin"):
                 self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
                 self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
@@ -234,6 +241,21 @@ class PlotWidget(Widget):
                 self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
                 self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
             self.refresh()
+
+    @on(MouseMove)
+    def drag_plot(self, event: MouseMove) -> None:
+        if event.button == 0:
+            return
+        x1, y1 = self.get_coordinate_from_pixel(1, 1)
+        x2, y2 = self.get_coordinate_from_pixel(2, 2)
+        dx, dy = x2 - x1, y1 - y2
+
+        if event.widget.id in ("plot", "bottom-margin"):
+            self._x_min -= dx * event.delta_x
+            self._x_max -= dx * event.delta_x
+        if event.widget.id in ("plot", "left-margin"):
+            self._y_min += dy * event.delta_y
+            self._y_max += dy * event.delta_y
 
 
 def map_coordinate_to_pixel(
