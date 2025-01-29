@@ -12,7 +12,7 @@ from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
 
-from textual_plot.canvas import Canvas, TextAlign, get_box
+from textual_plot.canvas import Canvas, TextAlign
 
 ZOOM_FACTOR = 0.05
 
@@ -170,12 +170,13 @@ class PlotWidget(Widget):
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
+        assert canvas.scale_rectangle is not None
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
         x_ticks = np.linspace(self._x_min, self._x_max, 5)
         for tick in x_ticks:
-            x, _ = self.get_pixel_from_coordinate(tick, 0)
+            x, _ = self.get_pixel_from_coordinate(tick, 0.0)
             align = TextAlign.CENTER
             if tick == self._x_min:
                 x -= 1
@@ -191,6 +192,7 @@ class PlotWidget(Widget):
 
     def _render_y_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
+        assert canvas.scale_rectangle is not None
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
@@ -207,7 +209,7 @@ class PlotWidget(Widget):
             left_margin.write_text(self._margin_left - 2, y, f"{tick:.1f}", align)
 
     def get_pixel_from_coordinate(
-        self, x: np.floating, y: np.floating
+        self, x: float | np.floating, y: float | np.floating
     ) -> tuple[int, int]:
         assert (
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
@@ -284,6 +286,7 @@ class PlotWidget(Widget):
         x2, y2 = self.get_coordinate_from_pixel(2, 2)
         dx, dy = x2 - x1, y1 - y2
 
+        assert event.widget is not None
         if event.widget.id in ("plot", "bottom-margin"):
             self._x_min -= dx * event.delta_x
             self._x_max -= dx * event.delta_x
