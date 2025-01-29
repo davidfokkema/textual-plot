@@ -125,6 +125,8 @@ class PlotWidget(Widget):
     def _render_plot(self) -> None:
         if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
             return
+        # clear canvas
+        canvas.reset()
 
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
@@ -302,6 +304,7 @@ class PlotWidget(Widget):
         if event.widget.id in ("plot", "left-margin"):
             self._y_min += dy * event.delta_y
             self._y_max += dy * event.delta_y
+        self.refresh()
 
 
 def map_coordinate_to_pixel(
@@ -351,15 +354,17 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        self.set_interval(1 / 24, self.plot_refresh)
-        # self.call_after_refresh(self.plot_refresh)
+        # self.set_interval(1 / 24, self.plot_refresh)
+        self.plot_refresh()
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
         plot.clear()
+        x = np.linspace(0, 10, 41)
+        y = x**2 / 3.5
         plot.scatter(
-            x=[0, 1, 2, 3, 4, 5, 9.99],
-            y=[0, 1, 4, 9, 16, 25, 29.99],
+            x,
+            y,
             marker_style="blue",
             marker="*",
         )
