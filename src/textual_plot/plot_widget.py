@@ -184,6 +184,11 @@ class PlotWidget(Widget):
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
             assert canvas.scale_rectangle is not None
+            if widget.id == "bottom-margin":
+                # Bottom margin is wider than the plot canvas. For x-scale
+                # zooming, we want to have the x-coordinate relative to the plot
+                # canvas, not relative to the bottom margin.
+                offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = map_pixel_to_coordinate(
                 offset.x,
                 offset.y,
@@ -207,6 +212,11 @@ class PlotWidget(Widget):
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
             assert canvas.scale_rectangle is not None
+            if widget.id == "bottom-margin":
+                # Bottom margin is wider than the plot canvas. For x-scale
+                # zooming, we want to have the x-coordinate relative to the plot
+                # canvas, not relative to the bottom margin.
+                offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = map_pixel_to_coordinate(
                 offset.x,
                 offset.y,
