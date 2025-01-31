@@ -196,6 +196,8 @@ class PlotWidget(Widget):
         for tick in y_ticks:
             # only interested in the x-coordinate, set x to 0.0
             _, y = self.get_pixel_from_coordinate(0.0, tick)
+            if tick == self._y_min:
+                y += 1
             for x, quad in [
                 (0, (0, 0, 0, 2)),
                 (canvas.scale_rectangle.right, (0, 2, 0, 0)),
