@@ -144,15 +144,7 @@ class PlotWidget(Widget):
         canvas = self.query_one("#plot", Canvas)
         assert canvas.scale_rectangle is not None
         pixels = [
-            map_coordinate_to_pixel(
-                xi,
-                yi,
-                self._x_min,
-                self._x_max,
-                self._y_min,
-                self._y_max,
-                region=canvas.scale_rectangle,
-            )
+            self.get_pixel_from_coordinate(xi, yi)
             for xi, yi in zip(dataset.x, dataset.y)
         ]
 
@@ -178,18 +170,19 @@ class PlotWidget(Widget):
 
         x_ticks = np.linspace(self._x_min, self._x_max, 5)
         for tick in x_ticks:
-            x, _ = self.get_pixel_from_coordinate(tick, 0.0)
             align = TextAlign.CENTER
+            # only interested in the x-coordinate, set y to 0.0
+            x, _ = self.get_pixel_from_coordinate(tick, 0.0)
             if tick == self._x_min:
                 x -= 1
             elif tick == self._x_max:
                 align = TextAlign.RIGHT
-            pixel = canvas.get_pixel(x, canvas.scale_rectangle.bottom)[0]
-            for quad, v in BOX_CHARACTERS.items():
-                if v == pixel:
-                    break
-            new_quad = combine_quads(quad, ((0, 0, 2, 0)))
-            canvas.set_pixel(x, canvas.scale_rectangle.bottom, BOX_CHARACTERS[new_quad])
+            for y, quad in [
+                (0, (2, 0, 0, 0)),
+                (canvas.scale_rectangle.bottom, (0, 0, 2, 0)),
+            ]:
+                new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
+                canvas.set_pixel(x, y, new_pixel)
             bottom_margin.write_text(x + self._margin_left, 0, f"{tick:.1f}", align)
 
     def _render_y_ticks(self) -> None:
@@ -199,16 +192,28 @@ class PlotWidget(Widget):
         left_margin.reset()
 
         y_ticks = np.linspace(self._y_min, self._y_max, 5)
+        align = TextAlign.RIGHT
         for tick in y_ticks:
-            _, y = self.get_pixel_from_coordinate(0, tick)
-            align = TextAlign.RIGHT
-            pixel = canvas.get_pixel(0, y)[0]
-            for quad, v in BOX_CHARACTERS.items():
-                if v == pixel:
-                    break
-            new_quad = combine_quads(quad, ((0, 0, 0, 2)))
-            canvas.set_pixel(0, y, BOX_CHARACTERS[new_quad])
+            # only interested in the x-coordinate, set x to 0.0
+            _, y = self.get_pixel_from_coordinate(0.0, tick)
+            for x, quad in [
+                (0, (0, 0, 0, 2)),
+                (canvas.scale_rectangle.right, (0, 2, 0, 0)),
+            ]:
+                new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
+                canvas.set_pixel(x, y, new_pixel)
             left_margin.write_text(self._margin_left - 2, y, f"{tick:.1f}", align)
+
+    def combine_quad_with_pixel(
+        self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int
+    ) -> str:
+        pixel = canvas.get_pixel(x, y)[0]
+        for current_quad, v in BOX_CHARACTERS.items():
+            if v == pixel:
+                break
+        new_quad = combine_quads(current_quad, quad)
+        print(f"{current_quad=}, {quad=}, {new_quad=}")
+        return BOX_CHARACTERS[new_quad]
 
     def get_pixel_from_coordinate(
         self, x: float | np.floating, y: float | np.floating
