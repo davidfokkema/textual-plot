@@ -1,7 +1,9 @@
 import enum
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
+from math import floor
 
+import numpy as np
 from rich.segment import Segment
 from rich.style import Style
 from rich.text import Text
@@ -14,6 +16,9 @@ from textual.strip import Strip
 from textual.widget import Widget
 
 get_box = BOX_CHARACTERS.__getitem__
+
+HALFBLOCK_PIXELS = {(0, 0): None, (1, 0): "▀", (0, 1): "▄", (1, 1): "█"}
+get_halfblock_pixel = HALFBLOCK_PIXELS.__getitem__
 
 
 class TextAlign(enum.Enum):
@@ -99,6 +104,35 @@ class Canvas(Widget):
     ) -> None:
         for x, y in coordinates:
             self.set_pixel(x, y, char, style)
+
+    def set_hires_pixels(
+        self, coordinates: Iterable[tuple[int, int]], style: str = "white"
+    ) -> None:
+        pixel_size = Size(1, 2)
+        hires_size_x = self._canvas_size[0] * pixel_size.width
+        hires_size_y = self._canvas_size[1] * pixel_size.height
+        hires_buffer = np.zeros(
+            shape=(hires_size_y, hires_size_x),
+            dtype=np.int8,
+        )
+        for x, y in coordinates:
+            try:
+                hires_buffer[floor(y * pixel_size.height)][
+                    floor(x * pixel_size.width)
+                ] = 1
+            except IndexError:
+                # pixel outside canvas
+                pass
+        for x in range(0, hires_size_x, pixel_size.width):
+            for y in range(0, hires_size_y, pixel_size.height):
+                subarray = hires_buffer[
+                    y : y + pixel_size.height, x : x + pixel_size.width
+                ]
+                subpixels = tuple(int(v) for v in subarray.flat)
+                if char := get_halfblock_pixel(subpixels):
+                    self.set_pixel(
+                        x // pixel_size.width, y // pixel_size.height, char=char
+                    )
 
     def get_pixel(self, x: int, y: int) -> tuple[str, str]:
         return self._buffer[y][x], self._styles[y][x]
@@ -242,12 +276,16 @@ class DemoApp(App[None]):
     def compose(self) -> ComposeResult:
         yield Canvas(40, 20)
 
-    def on_mount(self) -> None:
-        self.set_interval(1 / 10, self.redraw_canvas)
+    # def on_mount(self) -> None:
+    #     self.set_interval(1 / 10, self.redraw_canvas)
 
     @on(Canvas.Resize)
     def resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
+        canvas = self.query_one(Canvas)
+        pixels = canvas._get_line_coordinates(0, 0, 500, 19)
+        hires_pixels = [(x / 10, y / 10) for x, y in pixels]
+        canvas.set_hires_pixels(hires_pixels)
 
     def redraw_canvas(self) -> None:
         canvas = self.query_one(Canvas)
