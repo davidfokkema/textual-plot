@@ -17,8 +17,34 @@ from textual.widget import Widget
 
 get_box = BOX_CHARACTERS.__getitem__
 
-HALFBLOCK_PIXELS = {(0, 0): None, (1, 0): "▀", (0, 1): "▄", (1, 1): "█"}
-get_halfblock_pixel = HALFBLOCK_PIXELS.__getitem__
+
+class HiResMode(enum.Enum):
+    HALFBLOCK = enum.auto()
+    QUADRANT = enum.auto()
+    BRAILLE = enum.auto()
+
+
+pixels = {
+    HiResMode.HALFBLOCK: {(0, 0): None, (1, 0): "▀", (0, 1): "▄", (1, 1): "█"},
+    HiResMode.QUADRANT: {
+        (0, 0, 0, 0): None,
+        (0, 0, 0, 1): "▗",
+        (0, 0, 1, 0): "▖",
+        (0, 0, 1, 1): "▄",
+        (0, 1, 0, 0): "▝",
+        (0, 1, 0, 1): "▐",
+        (0, 1, 1, 0): "▞",
+        (0, 1, 1, 1): "▟",
+        (1, 0, 0, 0): "▘",
+        (1, 0, 0, 1): "▚",
+        (1, 0, 1, 0): "▌",
+        (1, 0, 1, 1): "▙",
+        (1, 1, 0, 0): "▀",
+        (1, 1, 0, 1): "▜",
+        (1, 1, 1, 0): "▛",
+        (1, 1, 1, 1): "█",
+    },
+}
 
 
 class TextAlign(enum.Enum):
@@ -109,17 +135,17 @@ class Canvas(Widget):
         self, coordinates: Iterable[tuple[int, int]], style: str = "white"
     ) -> None:
         pixel_size = Size(1, 2)
-        hires_size_x = self._canvas_size[0] * pixel_size.width
-        hires_size_y = self._canvas_size[1] * pixel_size.height
+        hires_size_x = self._canvas_size.width * pixel_size.width
+        hires_size_y = self._canvas_size.height * pixel_size.height
         hires_buffer = np.zeros(
             shape=(hires_size_y, hires_size_x),
-            dtype=np.int8,
+            dtype=np.bool,
         )
         for x, y in coordinates:
             try:
                 hires_buffer[floor(y * pixel_size.height)][
                     floor(x * pixel_size.width)
-                ] = 1
+                ] = True
             except IndexError:
                 # pixel outside canvas
                 pass
@@ -129,7 +155,7 @@ class Canvas(Widget):
                     y : y + pixel_size.height, x : x + pixel_size.width
                 ]
                 subpixels = tuple(int(v) for v in subarray.flat)
-                if char := get_halfblock_pixel(subpixels):
+                if char := pixels.get(HiResMode.HALFBLOCK).get(subpixels):
                     self.set_pixel(
                         x // pixel_size.width, y // pixel_size.height, char=char
                     )
