@@ -24,6 +24,12 @@ class HiResMode(enum.Enum):
     BRAILLE = enum.auto()
 
 
+hires_sizes = {
+    HiResMode.HALFBLOCK: Size(1, 2),
+    HiResMode.QUADRANT: Size(2, 2),
+    HiResMode.BRAILLE: Size(2, 8),
+}
+
 pixels = {
     HiResMode.HALFBLOCK: {(0, 0): None, (1, 0): "▀", (0, 1): "▄", (1, 1): "█"},
     HiResMode.QUADRANT: {
@@ -132,9 +138,12 @@ class Canvas(Widget):
             self.set_pixel(x, y, char, style)
 
     def set_hires_pixels(
-        self, coordinates: Iterable[tuple[int, int]], style: str = "white"
+        self,
+        coordinates: Iterable[tuple[int, int]],
+        hires_mode: HiResMode = HiResMode.HALFBLOCK,
+        style: str = "white",
     ) -> None:
-        pixel_size = Size(1, 2)
+        pixel_size = hires_sizes.get(hires_mode)
         hires_size_x = self._canvas_size.width * pixel_size.width
         hires_size_y = self._canvas_size.height * pixel_size.height
         hires_buffer = np.zeros(
@@ -155,9 +164,12 @@ class Canvas(Widget):
                     y : y + pixel_size.height, x : x + pixel_size.width
                 ]
                 subpixels = tuple(int(v) for v in subarray.flat)
-                if char := pixels.get(HiResMode.HALFBLOCK).get(subpixels):
+                if char := pixels.get(hires_mode).get(subpixels):
                     self.set_pixel(
-                        x // pixel_size.width, y // pixel_size.height, char=char
+                        x // pixel_size.width,
+                        y // pixel_size.height,
+                        char=char,
+                        style=style,
                     )
 
     def get_pixel(self, x: int, y: int) -> tuple[str, str]:
@@ -309,9 +321,14 @@ class DemoApp(App[None]):
     def resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
         canvas = self.query_one(Canvas)
-        pixels = canvas._get_line_coordinates(0, 0, 500, 19)
-        hires_pixels = [(x / 10, y / 10) for x, y in pixels]
-        canvas.set_hires_pixels(hires_pixels)
+        for pixels in [
+            canvas._get_line_coordinates(0, 0, 500, 19),
+            canvas._get_line_coordinates(0, 0, 19, 80),
+        ]:
+            hires_pixels = [(x / 10, y / 10) for x, y in pixels]
+            canvas.set_hires_pixels(
+                hires_pixels, style="blue", hires_mode=HiResMode.QUADRANT
+            )
 
     def redraw_canvas(self) -> None:
         canvas = self.query_one(Canvas)
