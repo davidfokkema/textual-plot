@@ -139,7 +139,7 @@ class Canvas(Widget):
 
     def set_hires_pixels(
         self,
-        coordinates: Iterable[tuple[int, int]],
+        coordinates: Iterable[tuple[float, float]],
         hires_mode: HiResMode = HiResMode.HALFBLOCK,
         style: str = "white",
     ) -> None:
@@ -179,6 +179,52 @@ class Canvas(Widget):
         self, x0: int, y0: int, x1: int, y1: int, char: str = "█", style: str = "white"
     ) -> None:
         self.set_pixels(self._get_line_coordinates(x0, y0, x1, y1), char, style)
+
+    def draw_lines(
+        self,
+        coordinates: Iterable[tuple[int, int, int, int]],
+        char: str = "█",
+        style: str = "white",
+    ) -> None:
+        for x0, y0, x1, y1 in coordinates:
+            self.draw_line(x0, y0, x1, y1, char, style)
+
+    def draw_hires_line(
+        self,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        hires_mode: HiResMode = HiResMode.HALFBLOCK,
+        style: str = "white",
+    ) -> None:
+        self.draw_hires_lines([(x0, y0, x1, y1)], hires_mode, style)
+
+    def draw_hires_lines(
+        self,
+        coordinates: Iterable[tuple[float, float, float, float]],
+        hires_mode: HiResMode = HiResMode.HALFBLOCK,
+        style: str = "white",
+    ) -> None:
+        pixel_size = hires_sizes.get(hires_mode)
+        pixels = []
+        for x0, y0, x1, y1 in coordinates:
+            coordinates = self._get_line_coordinates(
+                x0 * pixel_size.width,
+                y0 * pixel_size.height,
+                x1 * pixel_size.width,
+                y1 * pixel_size.height,
+            )
+            pixels.extend(
+                [
+                    (
+                        x / pixel_size.width,
+                        y / pixel_size.height,
+                    )
+                    for x, y in coordinates
+                ]
+            )
+        self.set_hires_pixels(pixels, hires_mode, style)
 
     def draw_rectangle_box(
         self,
@@ -321,14 +367,12 @@ class DemoApp(App[None]):
     def resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
         canvas = self.query_one(Canvas)
-        for pixels in [
-            canvas._get_line_coordinates(0, 0, 500, 19),
-            canvas._get_line_coordinates(0, 0, 19, 80),
-        ]:
-            hires_pixels = [(x / 10, y / 10) for x, y in pixels]
-            canvas.set_hires_pixels(
-                hires_pixels, style="blue", hires_mode=HiResMode.QUADRANT
-            )
+        canvas.draw_hires_line(
+            0, 0, 50, 1.9, hires_mode=HiResMode.QUADRANT, style="red on bright_black"
+        )
+        canvas.draw_hires_line(
+            0, 0, 1.9, 8, hires_mode=HiResMode.QUADRANT, style="white on bright_black"
+        )
 
     def redraw_canvas(self) -> None:
         canvas = self.query_one(Canvas)
