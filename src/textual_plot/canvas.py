@@ -340,6 +340,9 @@ class DemoApp(App[None]):
         canvas.draw_hires_line(
             0, 0, 1.9, 8, hires_mode=HiResMode.QUADRANT, style="white on bright_black"
         )
+        canvas.draw_hires_line(
+            0, 0, 20, 8, hires_mode=HiResMode.BRAILLE, style="white on bright_black"
+        )
 
     def redraw_canvas(self) -> None:
         canvas = self.query_one(Canvas)

@@ -460,6 +460,12 @@ class DemoApp(App[None]):
             line_style="green",
             hires_mode=HiResMode.QUADRANT,
         )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 3),
+            line_style="yellow",
+            hires_mode=HiResMode.BRAILLE,
+        )
 
         self._phi += 0.1
 
