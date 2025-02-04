@@ -210,10 +210,10 @@ class Canvas(Widget):
         pixels = []
         for x0, y0, x1, y1 in coordinates:
             coordinates = self._get_line_coordinates(
-                x0 * pixel_size.width,
-                y0 * pixel_size.height,
-                x1 * pixel_size.width,
-                y1 * pixel_size.height,
+                floor(x0 * pixel_size.width),
+                floor(y0 * pixel_size.height),
+                floor(x1 * pixel_size.width),
+                floor(y1 * pixel_size.height),
             )
             pixels.extend(
                 [
@@ -368,7 +368,7 @@ class DemoApp(App[None]):
         event.canvas.reset(size=event.size)
         canvas = self.query_one(Canvas)
         canvas.draw_hires_line(
-            0, 0, 50, 1.9, hires_mode=HiResMode.QUADRANT, style="red on bright_black"
+            0.7, 0, 50, 1.9, hires_mode=HiResMode.QUADRANT, style="red on bright_black"
         )
         canvas.draw_hires_line(
             0, 0, 1.9, 8, hires_mode=HiResMode.QUADRANT, style="white on bright_black"
