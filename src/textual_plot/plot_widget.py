@@ -156,13 +156,23 @@ class PlotWidget(Widget):
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
         assert canvas.scale_rectangle is not None
-        pixels = [
-            self.get_pixel_from_coordinate(xi, yi)
-            for xi, yi in zip(dataset.x, dataset.y)
-        ]
-
-        for pixel in pixels:
-            canvas.set_pixel(*pixel, char=dataset.marker, style=dataset.marker_style)
+        if dataset.hires_mode:
+            pixels = [
+                self.get_hires_pixel_from_coordinate(xi, yi)
+                for xi, yi in zip(dataset.x, dataset.y)
+            ]
+            canvas.set_hires_pixels(
+                pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
+            )
+        else:
+            pixels = [
+                self.get_pixel_from_coordinate(xi, yi)
+                for xi, yi in zip(dataset.x, dataset.y)
+            ]
+            for pixel in pixels:
+                canvas.set_pixel(
+                    *pixel, char=dataset.marker, style=dataset.marker_style
+                )
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -427,7 +437,8 @@ class DemoApp(App[None]):
             x,
             y,
             marker_style="blue",
-            marker="*",
+            # marker="*",
+            hires_mode=HiResMode.QUADRANT,
         )
         x = np.linspace(0, 10, 200)
         plot.plot(
