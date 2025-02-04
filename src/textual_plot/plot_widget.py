@@ -425,8 +425,8 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        self.set_interval(1 / 24, self.plot_refresh)
-        # self.plot_refresh()
+        # self.set_interval(1 / 24, self.plot_refresh)
+        self.plot_refresh()
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
