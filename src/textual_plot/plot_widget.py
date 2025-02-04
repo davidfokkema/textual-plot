@@ -12,7 +12,7 @@ from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
 
-from textual_plot.canvas import Canvas, TextAlign
+from textual_plot.canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
 
@@ -21,6 +21,7 @@ ZOOM_FACTOR = 0.05
 class DataSet:
     x: NDArray[np.floating]
     y: NDArray[np.floating]
+    hires_mode: HiResMode | None
 
 
 @dataclass
@@ -30,7 +31,7 @@ class LinePlot(DataSet):
 
 @dataclass
 class ScatterPlot(DataSet):
-    marker: str
+    marker: str | None
     marker_style: str
 
 
@@ -91,14 +92,25 @@ class PlotWidget(Widget):
         x: ArrayLike,
         y: ArrayLike,
         line_style: str = "white",
+        hires_mode: HiResMode | None = None,
     ) -> None:
         self._datasets.append(
-            LinePlot(x=np.array(x), y=np.array(y), line_style=line_style)
+            LinePlot(
+                x=np.array(x),
+                y=np.array(y),
+                line_style=line_style,
+                hires_mode=hires_mode,
+            )
         )
         self.refresh()
 
     def scatter(
-        self, x: ArrayLike, y: ArrayLike, marker: str = "o", marker_style: str = "white"
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        marker: str = "o",
+        marker_style: str = "white",
+        hires_mode: HiResMode | None = None,
     ) -> None:
         self._datasets.append(
             ScatterPlot(
@@ -106,6 +118,7 @@ class PlotWidget(Widget):
                 y=np.array(y),
                 marker=marker,
                 marker_style=marker_style,
+                hires_mode=hires_mode,
             )
         )
         self.refresh()
@@ -154,13 +167,23 @@ class PlotWidget(Widget):
     def _render_line_plot(self, dataset: LinePlot) -> None:
         canvas = self.query_one("#plot", Canvas)
         assert canvas.scale_rectangle is not None
-        pixels = [
-            self.get_pixel_from_coordinate(xi, yi)
-            for xi, yi in zip(dataset.x, dataset.y)
-        ]
 
-        for i in range(1, len(pixels)):
-            canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
+        if dataset.hires_mode:
+            pixels = [
+                self.get_hires_pixel_from_coordinate(xi, yi)
+                for xi, yi in zip(dataset.x, dataset.y)
+            ]
+            coordinates = [(*pixels[i - 1], *pixels[i]) for i in range(1, len(pixels))]
+            canvas.draw_hires_lines(
+                coordinates, style=dataset.line_style, hires_mode=dataset.hires_mode
+            )
+        else:
+            pixels = [
+                self.get_pixel_from_coordinate(xi, yi)
+                for xi, yi in zip(dataset.x, dataset.y)
+            ]
+            for i in range(1, len(pixels)):
+                canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -224,6 +247,22 @@ class PlotWidget(Widget):
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
         ) is not None
         return map_coordinate_to_pixel(
+            x,
+            y,
+            self._x_min,
+            self._x_max,
+            self._y_min,
+            self._y_max,
+            region=scale_rectangle,
+        )
+
+    def get_hires_pixel_from_coordinate(
+        self, x: float | np.floating, y: float | np.floating
+    ) -> tuple[float, float]:
+        assert (
+            scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
+        ) is not None
+        return map_coordinate_to_hires_pixel(
             x,
             y,
             self._x_min,
@@ -376,8 +415,8 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        # self.set_interval(1 / 24, self.plot_refresh)
-        self.plot_refresh()
+        self.set_interval(1 / 24, self.plot_refresh)
+        # self.plot_refresh()
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
@@ -391,8 +430,25 @@ class DemoApp(App[None]):
             marker="*",
         )
         x = np.linspace(0, 10, 200)
-        plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi), line_style="red3")
-        plot.plot(x=x, y=10 + 10 * np.sin(x + self._phi + 1), line_style="green")
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi),
+            line_style="blue",
+            hires_mode=None,
+        )
+
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 1),
+            line_style="red3",
+            hires_mode=HiResMode.HALFBLOCK,
+        )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 2),
+            line_style="green",
+            hires_mode=HiResMode.QUADRANT,
+        )
 
         self._phi += 0.1
 
