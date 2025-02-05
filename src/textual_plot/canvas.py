@@ -121,13 +121,9 @@ class Canvas(Widget):
             if not self._canvas_region.contains(x, y):
                 # coordinates are outside canvas
                 continue
-            try:
-                hires_buffer[floor(y * pixel_size.height)][
-                    floor(x * pixel_size.width)
-                ] = True
-            except IndexError:
-                # pixel outside canvas
-                pass
+            hires_buffer[floor(y * pixel_size.height)][floor(x * pixel_size.width)] = (
+                True
+            )
         for x in range(0, hires_size_x, pixel_size.width):
             for y in range(0, hires_size_y, pixel_size.height):
                 subarray = hires_buffer[
@@ -148,6 +144,10 @@ class Canvas(Widget):
     def draw_line(
         self, x0: int, y0: int, x1: int, y1: int, char: str = "█", style: str = "white"
     ) -> None:
+        if not self._canvas_region.contains(
+            x0, y0
+        ) and not self._canvas_region.contains(x1, y1):
+            return
         self.set_pixels(self._get_line_coordinates(x0, y0, x1, y1), char, style)
 
     def draw_lines(
@@ -179,6 +179,11 @@ class Canvas(Widget):
         pixel_size = hires_sizes.get(hires_mode)
         pixels = []
         for x0, y0, x1, y1 in coordinates:
+            if not self._canvas_region.contains(
+                x0, y0
+            ) and not self._canvas_region.contains(x1, y1):
+                # coordinates are outside canvas
+                continue
             coordinates = self._get_line_coordinates(
                 floor(x0 * pixel_size.width),
                 floor(y0 * pixel_size.height),
