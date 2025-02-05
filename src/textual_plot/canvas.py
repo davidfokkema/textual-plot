@@ -118,6 +118,9 @@ class Canvas(Widget):
             dtype=np.bool,
         )
         for x, y in coordinates:
+            if not self._canvas_region.contains(x, y):
+                # coordinates are outside canvas
+                continue
             try:
                 hires_buffer[floor(y * pixel_size.height)][
                     floor(x * pixel_size.width)
