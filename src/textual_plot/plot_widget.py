@@ -123,6 +123,20 @@ class PlotWidget(Widget):
         )
         self.refresh()
 
+    def set_xlimits(self, xmin: float | None, xmax: float | None) -> None:
+        if xmin is not None:
+            self._x_min = xmin
+        if xmax is not None:
+            self._x_max = xmax
+        self.refresh()
+
+    def set_ylimits(self, ymin: float | None, ymax: float | None) -> None:
+        if ymin is not None:
+            self._y_min = ymin
+        if ymax is not None:
+            self._y_max = ymax
+        self.refresh()
+
     def refresh(
         self,
         *regions: Region,
@@ -427,6 +441,9 @@ class DemoApp(App[None]):
     def on_mount(self) -> None:
         # self.set_interval(1 / 24, self.plot_refresh)
         self.plot_refresh()
+        # plot = self.query_one(PlotWidget)
+        # plot.set_xlimits(1, 1.001)
+        # plot.set_ylimits(1, 1.0001)
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
