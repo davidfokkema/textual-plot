@@ -11,6 +11,7 @@ from textual.containers import Grid
 from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
+from textual.widgets import Footer, Header
 
 from textual_plot.canvas import Canvas, HiResMode, TextAlign
 
@@ -35,7 +36,7 @@ class ScatterPlot(DataSet):
     marker_style: str
 
 
-class PlotWidget(Widget):
+class PlotWidget(Widget, can_focus=True):
     DEFAULT_CSS = """
         PlotWidget {
             Grid {
@@ -48,12 +49,18 @@ class PlotWidget(Widget):
         }
     """
 
+    BINDINGS = [("a", "auto_scale", "Autoscale")]
+
     _datasets: list[DataSet]
 
+    _auto_x_min: bool = True
+    _auto_x_max: bool = True
+    _auto_y_min: bool = True
+    _auto_y_max: bool = True
     _x_min: float = 0.0
-    _x_max: float = 10.0
+    _x_max: float = 1.0
     _y_min: float = 0.0
-    _y_max: float = 30.0
+    _y_max: float = 1.0
     _margin_bottom: int = 3
     _margin_left: int = 10
 
@@ -123,17 +130,21 @@ class PlotWidget(Widget):
         )
         self.refresh()
 
-    def set_xlimits(self, xmin: float | None, xmax: float | None) -> None:
+    def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
         if xmin is not None:
+            self._auto_x_min = False
             self._x_min = xmin
         if xmax is not None:
+            self._auto_x_max = False
             self._x_max = xmax
         self.refresh()
 
-    def set_ylimits(self, ymin: float | None, ymax: float | None) -> None:
+    def set_ylimits(self, ymin: float | None = None, ymax: float | None = None) -> None:
         if ymin is not None:
+            self._auto_y_min = False
             self._y_min = ymin
         if ymax is not None:
+            self._auto_y_max = False
             self._y_max = ymax
         self.refresh()
 
@@ -154,6 +165,17 @@ class PlotWidget(Widget):
             return
         # clear canvas
         canvas.reset()
+
+        xs = [dataset.x for dataset in self._datasets]
+        ys = [dataset.y for dataset in self._datasets]
+        if self._auto_x_min:
+            self._x_min = min(min(x) for x in xs)
+        if self._auto_x_max:
+            self._x_max = max(max(x) for x in xs)
+        if self._auto_y_min:
+            self._y_min = min(min(y) for y in ys)
+        if self._auto_y_max:
+            self._y_max = max(max(y) for y in ys)
 
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
@@ -261,7 +283,6 @@ class PlotWidget(Widget):
             if v == pixel:
                 break
         new_quad = combine_quads(current_quad, quad)
-        print(f"{current_quad=}, {quad=}, {new_quad=}")
         return BOX_CHARACTERS[new_quad]
 
     def get_pixel_from_coordinate(
@@ -323,9 +344,13 @@ class PlotWidget(Widget):
                 offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
             if widget.id in ("plot", "bottom-margin"):
+                self._auto_x_min = False
+                self._auto_x_max = False
                 self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
                 self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
             if widget.id in ("plot", "left-margin"):
+                self._auto_y_min = False
+                self._auto_y_max = False
                 self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
                 self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
             self.refresh()
@@ -343,9 +368,13 @@ class PlotWidget(Widget):
                 offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
             if widget.id in ("plot", "bottom-margin"):
+                self._auto_x_min = False
+                self._auto_x_max = False
                 self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
                 self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
             if widget.id in ("plot", "left-margin"):
+                self._auto_y_min = False
+                self._auto_y_max = False
                 self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
                 self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
             self.refresh()
@@ -369,11 +398,22 @@ class PlotWidget(Widget):
 
         assert event.widget is not None
         if event.widget.id in ("plot", "bottom-margin"):
+            self._auto_x_min = False
+            self._auto_x_max = False
             self._x_min -= dx * event.delta_x
             self._x_max -= dx * event.delta_x
         if event.widget.id in ("plot", "left-margin"):
+            self._auto_y_min = False
+            self._auto_y_max = False
             self._y_min += dy * event.delta_y
             self._y_max += dy * event.delta_y
+        self.refresh()
+
+    def action_auto_scale(self) -> None:
+        self._auto_x_min = True
+        self._auto_x_max = True
+        self._auto_y_min = True
+        self._auto_y_max = True
         self.refresh()
 
 
@@ -436,6 +476,8 @@ class DemoApp(App[None]):
     _phi: float = 0.0
 
     def compose(self) -> ComposeResult:
+        yield Header()
+        yield Footer()
         yield PlotWidget()
 
     def on_mount(self) -> None:
