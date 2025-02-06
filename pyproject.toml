@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [{ name = "David Fokkema", email = "davidfokkema@icloud.com" }]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = ["numpy>=2.2.1", "textual>=1.0.0"]
 
 [build-system]
