@@ -81,6 +81,8 @@ class PlotWidget(Widget, can_focus=True):
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
+        self.set_xlimits(None, None)
+        self.set_ylimits(None, None)
         self.clear()
 
     def _on_resize(self) -> None:
@@ -96,8 +98,6 @@ class PlotWidget(Widget, can_focus=True):
 
     def clear(self) -> None:
         self._datasets = []
-        self.set_xlimits(None, None)
-        self.set_ylimits(None, None)
         self.query_one("#plot", Canvas).reset()
 
     def plot(
@@ -486,11 +486,8 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        # self.set_interval(1 / 24, self.plot_refresh)
+        self.set_interval(1 / 24, self.plot_refresh)
         self.plot_refresh()
-        # plot = self.query_one(PlotWidget)
-        # plot.set_xlimits(1, 1.001)
-        # plot.set_ylimits(1, 1.0001)
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
