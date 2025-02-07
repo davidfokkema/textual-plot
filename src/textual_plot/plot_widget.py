@@ -49,18 +49,22 @@ class PlotWidget(Widget, can_focus=True):
         }
     """
 
-    BINDINGS = [("a", "auto_scale", "Autoscale")]
+    BINDINGS = [("r", "reset_scales", "Reset scales")]
 
     _datasets: list[DataSet]
 
+    _user_x_min: float | None = None
+    _user_x_max: float | None = None
+    _user_y_min: float | None = None
+    _user_y_max: float | None = None
     _auto_x_min: bool = True
     _auto_x_max: bool = True
     _auto_y_min: bool = True
     _auto_y_max: bool = True
-    _x_min: float = 0.0
-    _x_max: float = 1.0
-    _y_min: float = 0.0
-    _y_max: float = 1.0
+    _x_min: float
+    _x_max: float
+    _y_min: float
+    _y_max: float
     _margin_bottom: int = 3
     _margin_left: int = 10
 
@@ -68,7 +72,6 @@ class PlotWidget(Widget, can_focus=True):
 
     def __init__(self, id: str | None = None) -> None:
         super().__init__(id=id)
-        self._datasets = []
 
     def compose(self) -> ComposeResult:
         with Grid():
@@ -78,6 +81,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
+        self.clear()
 
     def _on_resize(self) -> None:
         self.call_later(self.refresh)
@@ -92,6 +96,8 @@ class PlotWidget(Widget, can_focus=True):
 
     def clear(self) -> None:
         self._datasets = []
+        self.set_xlimits(None, None)
+        self.set_ylimits(None, None)
         self.query_one("#plot", Canvas).reset()
 
     def plot(
@@ -131,21 +137,21 @@ class PlotWidget(Widget, can_focus=True):
         self.refresh()
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
-        if xmin is not None:
-            self._auto_x_min = False
-            self._x_min = xmin
-        if xmax is not None:
-            self._auto_x_max = False
-            self._x_max = xmax
+        self._user_x_min = xmin
+        self._user_x_max = xmax
+        self._auto_x_min = xmin is None
+        self._auto_x_max = xmax is None
+        self._x_min = xmin if xmin is not None else 0.0
+        self._x_max = xmax if xmax is not None else 1.0
         self.refresh()
 
     def set_ylimits(self, ymin: float | None = None, ymax: float | None = None) -> None:
-        if ymin is not None:
-            self._auto_y_min = False
-            self._y_min = ymin
-        if ymax is not None:
-            self._auto_y_max = False
-            self._y_max = ymax
+        self._user_y_min = ymin
+        self._user_y_max = ymax
+        self._auto_y_min = ymin is None
+        self._auto_y_max = ymax is None
+        self._y_min = ymin if ymin is not None else 0.0
+        self._y_max = ymax if ymax is not None else 1.0
         self.refresh()
 
     def refresh(
@@ -166,16 +172,17 @@ class PlotWidget(Widget, can_focus=True):
         # clear canvas
         canvas.reset()
 
-        xs = [dataset.x for dataset in self._datasets]
-        ys = [dataset.y for dataset in self._datasets]
-        if self._auto_x_min:
-            self._x_min = min(min(x) for x in xs)
-        if self._auto_x_max:
-            self._x_max = max(max(x) for x in xs)
-        if self._auto_y_min:
-            self._y_min = min(min(y) for y in ys)
-        if self._auto_y_max:
-            self._y_max = max(max(y) for y in ys)
+        if self._datasets:
+            xs = [dataset.x for dataset in self._datasets]
+            ys = [dataset.y for dataset in self._datasets]
+            if self._auto_x_min:
+                self._x_min = min(min(x) for x in xs)
+            if self._auto_x_max:
+                self._x_max = max(max(x) for x in xs)
+            if self._auto_y_min:
+                self._y_min = min(min(y) for y in ys)
+            if self._auto_y_max:
+                self._y_max = max(max(y) for y in ys)
 
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
@@ -409,11 +416,9 @@ class PlotWidget(Widget, can_focus=True):
             self._y_max += dy * event.delta_y
         self.refresh()
 
-    def action_auto_scale(self) -> None:
-        self._auto_x_min = True
-        self._auto_x_max = True
-        self._auto_y_min = True
-        self._auto_y_max = True
+    def action_reset_scales(self) -> None:
+        self.set_xlimits(self._user_x_min, self._user_x_max)
+        self.set_ylimits(self._user_y_min, self._user_y_max)
         self.refresh()
 
 
