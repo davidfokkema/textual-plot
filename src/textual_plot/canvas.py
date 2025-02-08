@@ -233,6 +233,8 @@ class Canvas(Widget):
         text: str,
         align: TextAlign = TextAlign.LEFT,
     ) -> None:
+        if text == "":
+            return
         assert self._canvas_size is not None
         if y < 0 or y >= self._canvas_size.height:
             return
