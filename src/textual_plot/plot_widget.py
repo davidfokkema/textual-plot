@@ -244,8 +244,8 @@ class PlotWidget(Widget, can_focus=True):
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
-        x_ticks = self.get_ticks_between(self._x_min, self._x_max)
-        for tick in x_ticks:
+        x_ticks, x_labels = self.get_ticks_between(self._x_min, self._x_max)
+        for tick, label in zip(x_ticks, x_labels):
             align = TextAlign.CENTER
             # only interested in the x-coordinate, set y to 0.0
             x, _ = self.get_pixel_from_coordinate(tick, 0.0)
@@ -254,12 +254,13 @@ class PlotWidget(Widget, can_focus=True):
             elif tick == self._x_max:
                 align = TextAlign.RIGHT
             for y, quad in [
+                # put ticks at top and bottom of scale rectangle
                 (0, (2, 0, 0, 0)),
                 (canvas.scale_rectangle.bottom, (0, 0, 2, 0)),
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
-            bottom_margin.write_text(x + self._margin_left, 0, f"{tick:.1f}", align)
+            bottom_margin.write_text(x + self._margin_left, 0, label, align)
 
     def _render_y_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -267,20 +268,21 @@ class PlotWidget(Widget, can_focus=True):
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
-        y_ticks = self.get_ticks_between(self._y_min, self._y_max)
+        y_ticks, y_labels = self.get_ticks_between(self._y_min, self._y_max)
         align = TextAlign.RIGHT
-        for tick in y_ticks:
+        for tick, label in zip(y_ticks, y_labels):
             # only interested in the x-coordinate, set x to 0.0
             _, y = self.get_pixel_from_coordinate(0.0, tick)
             if tick == self._y_min:
                 y += 1
             for x, quad in [
+                # put ticks at left and right of scale rectangle
                 (0, (0, 0, 0, 2)),
                 (canvas.scale_rectangle.right, (0, 2, 0, 0)),
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
-            left_margin.write_text(self._margin_left - 2, y, f"{tick:.1f}", align)
+            left_margin.write_text(self._margin_left - 2, y, label, align)
 
     def get_ticks_between(self, min_, max_, max_ticks=8):
         delta_x = max_ - min_
@@ -293,10 +295,13 @@ class PlotWidget(Widget, can_focus=True):
         interval = intervals[idx - 1] * 10**power
         if delta_x // interval > max_ticks:
             interval = intervals[idx] * 10**power
-        return [
+        ticks = [
             float(t * interval)
             for t in np.arange(ceil(min_ / interval), max_ // interval + 1)
         ]
+        decimals = -min(0, power)
+        tick_labels = [f"{tick:.{decimals}f}" for tick in ticks]
+        return ticks, tick_labels
 
     def combine_quad_with_pixel(
         self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int
