@@ -40,9 +40,9 @@ class PlotWidget(Widget, can_focus=True):
     DEFAULT_CSS = """
         PlotWidget {
             Grid {
-                grid-size: 2 2;
+                grid-size: 2 3;
 
-                #bottom-margin {
+                #top-margin, #bottom-margin {
                     column-span: 2;
                 }
             }
@@ -66,6 +66,7 @@ class PlotWidget(Widget, can_focus=True):
     _y_min: float
     _y_max: float
 
+    _margin_top: int = 2
     _margin_bottom: int = 3
     _margin_left: int = 10
 
@@ -79,6 +80,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def compose(self) -> ComposeResult:
         with Grid():
+            yield Canvas(id="top-margin")
             yield Canvas(id="left-margin")
             yield Canvas(id="plot")
             yield Canvas(id="bottom-margin")
@@ -98,7 +100,7 @@ class PlotWidget(Widget, can_focus=True):
     def _update_margin_sizes(self) -> None:
         grid = self.query_one(Grid)
         grid.styles.grid_columns = f"{self._margin_left} 1fr"
-        grid.styles.grid_rows = f"1fr {self._margin_bottom}"
+        grid.styles.grid_rows = f"{self._margin_top} 1fr {self._margin_bottom}"
 
     def clear(self) -> None:
         self._datasets = []
@@ -307,10 +309,10 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _render_y_label(self) -> None:
-        margin = self.query_one("#bottom-margin", Canvas)
+        margin = self.query_one("#top-margin", Canvas)
         margin.write_text(
-            self._margin_left,
-            1,
+            self._margin_left - 2,
+            0,
             self._y_label,
             TextAlign.CENTER,
         )
