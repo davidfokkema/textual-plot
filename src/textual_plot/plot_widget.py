@@ -65,8 +65,12 @@ class PlotWidget(Widget, can_focus=True):
     _x_max: float
     _y_min: float
     _y_max: float
+
     _margin_bottom: int = 3
     _margin_left: int = 10
+
+    _x_label: str = ""
+    _y_label: str = ""
 
     _is_dragging: bool = False
 
@@ -154,6 +158,12 @@ class PlotWidget(Widget, can_focus=True):
         self._y_max = ymax if ymax is not None else 1.0
         self.refresh()
 
+    def set_xlabel(self, label: str) -> None:
+        self._x_label = label
+
+    def set_ylabel(self, label: str) -> None:
+        self._y_label = label
+
     def refresh(
         self,
         *regions: Region,
@@ -195,6 +205,8 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._render_x_ticks()
         self._render_y_ticks()
+        self._render_x_label()
+        self._render_y_label()
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -283,6 +295,25 @@ class PlotWidget(Widget, can_focus=True):
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
             left_margin.write_text(self._margin_left - 2, y, label, align)
+
+    def _render_x_label(self) -> None:
+        canvas = self.query_one("#plot", Canvas)
+        margin = self.query_one("#bottom-margin", Canvas)
+        margin.write_text(
+            canvas.size.width // 2 + self._margin_left,
+            2,
+            self._x_label,
+            TextAlign.CENTER,
+        )
+
+    def _render_y_label(self) -> None:
+        margin = self.query_one("#bottom-margin", Canvas)
+        margin.write_text(
+            self._margin_left,
+            1,
+            self._y_label,
+            TextAlign.CENTER,
+        )
 
     def get_ticks_between(self, min_, max_, max_ticks=8):
         delta_x = max_ - min_
@@ -507,8 +538,16 @@ class DemoApp(App[None]):
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        self.set_interval(1 / 24, self.plot_refresh)
-        self.plot_refresh()
+        # self.set_interval(1 / 24, self.plot_refresh)
+        # self.plot_refresh()
+        plot = self.query_one(PlotWidget)
+        x, y = np.genfromtxt(
+            "night-spectrum.csv", delimiter=",", names=True, unpack=True
+        )
+        plot.plot(x, y, hires_mode=HiResMode.BRAILLE)
+        plot.set_ylimits(ymin=0)
+        plot.set_xlabel("Wavelength (nm)")
+        plot.set_ylabel("Intensity")
 
     def plot_refresh(self) -> None:
         plot = self.query_one(PlotWidget)
