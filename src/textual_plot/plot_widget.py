@@ -98,7 +98,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def clear(self) -> None:
         self._datasets = []
-        self.query_one("#plot", Canvas).reset()
+        self.refresh()
 
     def plot(
         self,
