@@ -445,14 +445,7 @@ class PlotWidget(Widget, can_focus=True):
         if event.button == 0:
             # If no button is pressed, don't drag.
             return
-        if event.screen_offset == (0, 0) or (
-            event.x == event.delta_x or event.y == event.delta_y
-        ):
-            # FIXME: BUG in Textual?
-            # If the mouse moves out of the window, the position jumps to (0, 0)
-            # briefly, creating large offsets equal to the current position in
-            # the next move event.
-            return
+
         x1, y1 = self.get_coordinate_from_pixel(1, 1)
         x2, y2 = self.get_coordinate_from_pixel(2, 2)
         dx, dy = x2 - x1, y1 - y2
