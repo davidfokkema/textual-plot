@@ -539,7 +539,7 @@ class DemoApp(App[None]):
         x, y = np.genfromtxt(
             "night-spectrum.csv", delimiter=",", names=True, unpack=True
         )
-        plot.plot(x, y, hires_mode=HiResMode.BRAILLE)
+        plot.plot(x, y, hires_mode=HiResMode.QUADRANT)
         plot.set_ylimits(ymin=0)
         plot.set_xlabel("Wavelength (nm)")
         plot.set_ylabel("Intensity")
