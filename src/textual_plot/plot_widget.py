@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from math import ceil, floor
+from math import ceil, floor, log10
 from typing import Self
 
 import numpy as np
@@ -244,7 +244,7 @@ class PlotWidget(Widget, can_focus=True):
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
-        x_ticks = np.linspace(self._x_min, self._x_max, 5)
+        x_ticks = self.get_ticks_between(self._x_min, self._x_max)
         for tick in x_ticks:
             align = TextAlign.CENTER
             # only interested in the x-coordinate, set y to 0.0
@@ -267,7 +267,7 @@ class PlotWidget(Widget, can_focus=True):
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
-        y_ticks = np.linspace(self._y_min, self._y_max, 5)
+        y_ticks = self.get_ticks_between(self._y_min, self._y_max)
         align = TextAlign.RIGHT
         for tick in y_ticks:
             # only interested in the x-coordinate, set x to 0.0
@@ -281,6 +281,22 @@ class PlotWidget(Widget, can_focus=True):
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
             left_margin.write_text(self._margin_left - 2, y, f"{tick:.1f}", align)
+
+    def get_ticks_between(self, min_, max_, max_ticks=8):
+        delta_x = max_ - min_
+        tick_spacing = delta_x / 5
+        power = floor(log10(tick_spacing))
+        approx_interval = tick_spacing / 10**power
+        intervals = np.array([1, 2, 5, 10])
+
+        idx = intervals.searchsorted(approx_interval)
+        interval = intervals[idx - 1] * 10**power
+        if delta_x // interval > max_ticks:
+            interval = intervals[idx] * 10**power
+        return [
+            float(t * interval)
+            for t in np.arange(ceil(min_ / interval), max_ // interval + 1)
+        ]
 
     def combine_quad_with_pixel(
         self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int
