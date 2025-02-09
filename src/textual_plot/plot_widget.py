@@ -12,8 +12,7 @@ from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
 from textual.widgets import Footer, Header
-
-from textual_plot.canvas import Canvas, HiResMode, TextAlign
+from textual_hires_canvas.canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
 

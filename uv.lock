@@ -671,12 +671,26 @@ wheels = [
 ]
 
 [[package]]
+name = "textual-hires-canvas"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "textual" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/11/7f37f933e660ee45fe55a8fcb1cebdc2e8d8489cea85b5fbb5642cea879e/textual_hires_canvas-0.1.0.tar.gz", hash = "sha256:60e334423a9fbd8e2d7b3faa0e84f1aee0b6565ace62ab4925ce2fd467515d8d", size = 48775 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/36/1e/b465fad462bda75abd672feafc7ee80772c4b63aeea55e4a8a8f25423e78/textual_hires_canvas-0.1.0-py3-none-any.whl", hash = "sha256:10753bac8d3a884f0ce587fda2a6c335294caacebc5dfb0e1601b2d60dbfe78d", size = 7377 },
+]
+
+[[package]]
 name = "textual-plot"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },
     { name = "textual" },
+    { name = "textual-hires-canvas" },
 ]
 
 [package.dev-dependencies]
@@ -691,6 +705,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.2.1" },
     { name = "textual", specifier = ">=1.0.0" },
+    { name = "textual-hires-canvas", specifier = ">=0.1.0" },
 ]
 
 [package.metadata.requires-dev]
