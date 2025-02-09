@@ -1,0 +1,1 @@
+# A native plotting widget for Textual apps
