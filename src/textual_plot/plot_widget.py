@@ -12,7 +12,7 @@ from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
 from textual.widget import Widget
 from textual.widgets import Footer, Header
-from textual_hires_canvas.canvas import Canvas, HiResMode, TextAlign
+from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
 
@@ -187,13 +187,13 @@ class PlotWidget(Widget, can_focus=True):
             xs = [dataset.x for dataset in self._datasets]
             ys = [dataset.y for dataset in self._datasets]
             if self._auto_x_min:
-                self._x_min = min(min(x) for x in xs)
+                self._x_min = min(np.min(x) for x in xs)
             if self._auto_x_max:
-                self._x_max = max(max(x) for x in xs)
+                self._x_max = max(np.max(x) for x in xs)
             if self._auto_y_min:
-                self._y_min = min(min(y) for y in ys)
+                self._y_min = min(np.min(y) for y in ys)
             if self._auto_y_max:
-                self._y_max = max(max(y) for y in ys)
+                self._y_max = max(np.max(y) for y in ys)
 
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
@@ -226,6 +226,7 @@ class PlotWidget(Widget, can_focus=True):
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
             for pixel in pixels:
+                assert dataset.marker is not None
                 canvas.set_pixel(
                     *pixel, char=dataset.marker, style=dataset.marker_style
                 )
@@ -316,7 +317,9 @@ class PlotWidget(Widget, can_focus=True):
             TextAlign.CENTER,
         )
 
-    def get_ticks_between(self, min_, max_, max_ticks=8):
+    def get_ticks_between(
+        self, min_: float, max_: float, max_ticks: int = 8
+    ) -> tuple[list[float], list[str]]:
         delta_x = max_ - min_
         tick_spacing = delta_x / 5
         power = floor(log10(tick_spacing))
@@ -363,7 +366,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def get_hires_pixel_from_coordinate(
         self, x: float | np.floating, y: float | np.floating
-    ) -> tuple[float, float]:
+    ) -> tuple[float | np.floating, float | np.floating]:
         assert (
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
         ) is not None
