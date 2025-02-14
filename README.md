@@ -34,7 +34,7 @@ python -m textual_plot.demo
 
 ## Tutorial
 
-A minimal examples is shown below:
+A minimal example is shown below:
 ![screenshot of minimal example](docs/images/screenshot-minimal.png)
 ```python
 from textual.app import App, ComposeResult
@@ -53,7 +53,7 @@ class MinimalApp(App[None]):
 
 MinimalApp().run()
 ```
-The code is quite simple. You simply include a `PlotWidget` in your compose method and after your UI has finished composing, you can start plotting data. The `plot()` method takes `x` and `y` data which should be array-like. It can be lists, or NumPy arrays, or really anything that can be turned into a NumPy array which is what's used internally. The `plot()` method further accepts a `line_style` argument which accepts Textual styles like `"white"`, `"red on blue3"`, etc. For standard low-resolution plots, it does not make much sense to specify a background color since the text character used for plotting is a full block filling an entire cell.
+You include a `PlotWidget` in your compose method and after your UI has finished composing, you can start plotting data. The `plot()` method takes `x` and `y` data which should be array-like. It can be lists, or NumPy arrays, or really anything that can be turned into a NumPy array which is what's used internally. The `plot()` method further accepts a `line_style` argument which accepts Textual styles like `"white"`, `"red on blue3"`, etc. For standard low-resolution plots, it does not make much sense to specify a background color since the text character used for plotting is a full block filling an entire cell.
 
 ### High-resolution plotting
 
@@ -250,4 +250,8 @@ Various other methods exist, mostly for coordinate transformations and handling 
 
 ## Alternatives
 
-[Textual-plotext](https://github.com/Textualize/textual-plotext) uses the [plotext](https://github.com/piccolomo/plotext) library which has much more features than this library. However, it does not support interactive zooming or panning and the tick placement isn't as nice since it simply divides up the axes range into a fixed number of intervals giving values like 0, 123.4, 246.8, etc.
+[Textual-plotext](https://github.com/Textualize/textual-plotext) uses the [plotext](https://github.com/piccolomo/plotext) library which has more features than this library. However, it does not support interactive zooming or panning and the tick placement isn't as nice since it simply divides up the axes range into a fixed number of intervals giving values like 0, 123.4, 246.8, etc.
+
+## Roadmap
+
+The performance can be much improved, but we're working on that. Next, we'll work on adding some features like date axes. This will (probably) not turn into a general do-it-all plotting library. We focus first on handling quantitative data in the context of physics experiments. If you'd like to see features added, do let us know. And if a PR is of good quality and is a good fit for the API, we'd love to handle more use cases beyond physics. And who knows, maybe this _will_ turn into a general plotting library!
