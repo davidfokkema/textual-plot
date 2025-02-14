@@ -10,6 +10,8 @@
 
 ![video of plot demo](https://github.com/user-attachments/assets/dd725fdc-e182-4bed-8951-5899bdb99a20)
 
+The _daytime spectrum_ dataset shows the visible-light spectrum recorded by an Ocean Optics USB2000+ spectrometer using the [DeadSea Optics](https://github.com/davidfokkema/deadsea-optics) software. It was taken in the morning while the detector was facing my office window.
+
 ## Features
 
 - Line plots
