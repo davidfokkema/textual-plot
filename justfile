@@ -1,5 +1,5 @@
 demo:
-    uv run textual run textual_plot.plot_widget:DemoApp
+    uv run textual run textual_plot.demo:DemoApp
 
 typecheck:
     uv run mypy -p textual_plot --strict
