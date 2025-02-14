@@ -22,6 +22,7 @@ class SpectrumPlot(Container):
 
     def on_mount(self) -> None:
         self.plot_spectrum()
+        self.query_one(PlotWidget).set_ylimits(ymin=0)
 
     def plot_spectrum(self) -> None:
         plot = self.query_one(PlotWidget)
@@ -30,7 +31,6 @@ class SpectrumPlot(Container):
         )
         plot.clear()
         plot.plot(x, y, hires_mode=self.mode)
-        plot.set_ylimits(ymin=0)
         plot.set_xlabel("Wavelength (nm)")
         plot.set_ylabel("Intensity")
 
