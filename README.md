@@ -68,3 +68,28 @@ class MinimalApp(App[None]):
 MinimalApp().run()
 ```
 Admittedly, you'll be mostly plotting with foreground colors only. The plot widget supports four high-resolution modes: `Hires.BRAILLE` (2x8), `HiRes.HALFBLOCK` (1x2) and `HiRes.QUADRANT` (2x2) where the size between brackets is the number of 'pixels' inside a single cell.
+
+To create scatter plots, use the `scatter()` method, which accepts a `marker` argument which can be any unicode character (as long as it is one cell wide, which excludes many emoji characters and non-Western scripts):
+![screenshot of scatter plot](docs/images/screenshot-scatter.png)
+```python
+import numpy as np
+from textual.app import App, ComposeResult
+
+from textual_plot import PlotWidget
+
+
+class MinimalApp(App[None]):
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        rng = np.random.default_rng(seed=4)
+        plot = self.query_one(PlotWidget)
+
+        x = np.linspace(0, 10, 21)
+        y = 0.2 * x - 1 + rng.normal(loc=0.0, scale=0.2, size=len(x))
+        plot.scatter(x, y, marker="⦿")
+
+
+MinimalApp().run()
+```
