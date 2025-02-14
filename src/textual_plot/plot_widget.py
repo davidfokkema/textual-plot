@@ -35,6 +35,13 @@ class ScatterPlot(DataSet):
 
 
 class PlotWidget(Widget, can_focus=True):
+    """A plot widget for Textual apps.
+
+    This widget supports high-resolution line and scatter plots, has nice ticks
+    at 1, 2, 5, 10, 20, 50, etc. intervals and supports zooming and panning with
+    your pointer device.
+    """
+
     DEFAULT_CSS = """
         PlotWidget {
             Grid {
@@ -101,6 +108,7 @@ class PlotWidget(Widget, can_focus=True):
         grid.styles.grid_rows = f"{self._margin_top} 1fr {self._margin_bottom}"
 
     def clear(self) -> None:
+        """Clear the plot canvas."""
         self._datasets = []
         self.refresh()
 
@@ -111,6 +119,20 @@ class PlotWidget(Widget, can_focus=True):
         line_style: str = "white",
         hires_mode: HiResMode | None = None,
     ) -> None:
+        """Graph dataset using a line plot.
+
+        If you supply hires_mode, the dataset will be plotted using one of the
+        available high-resolution modes like 1x2, 2x2 or 2x8 pixel-per-cell
+        characters.
+
+        Args:
+            x: An ArrayLike with the data values for the horizontal axis.
+            y: An ArrayLike with the data values for the vertical axis.
+            line_style: A string with the style of the line. Defaults to
+                "white".
+            hires_mode: A HiResMode enum or None to plot with full-height
+                blocks. Defaults to None.
+        """
         self._datasets.append(
             LinePlot(
                 x=np.array(x),
@@ -129,6 +151,21 @@ class PlotWidget(Widget, can_focus=True):
         marker_style: str = "white",
         hires_mode: HiResMode | None = None,
     ) -> None:
+        """Graph dataset using a scatter plot.
+
+        If you supply hires_mode, the dataset will be plotted using one of the
+        available high-resolution modes like 1x2, 2x2 or 2x8 pixel-per-cell
+        characters.
+
+        Args:
+            x: An ArrayLike with the data values for the horizontal axis.
+            y: An ArrayLike with the data values for the vertical axis.
+            marker: A string with the character to print as the marker.
+            marker_style: A string with the style of the marker. Defaults to
+                "white".
+            hires_mode: A HiResMode enum or None to plot with the supplied
+                marker. Defaults to None.
+        """
         self._datasets.append(
             ScatterPlot(
                 x=np.array(x),
@@ -141,6 +178,14 @@ class PlotWidget(Widget, can_focus=True):
         self.refresh()
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
+        """Set the limits of the x axis.
+
+        Args:
+            xmin: A float with the minimum x value or None for autoscaling.
+                Defaults to None.
+            xmax: A float with the maximum x value or None for autoscaling.
+                Defaults to None.
+        """
         self._user_x_min = xmin
         self._user_x_max = xmax
         self._auto_x_min = xmin is None
@@ -150,6 +195,14 @@ class PlotWidget(Widget, can_focus=True):
         self.refresh()
 
     def set_ylimits(self, ymin: float | None = None, ymax: float | None = None) -> None:
+        """Set the limits of the y axis.
+
+        Args:
+            xmin: A float with the minimum y value or None for autoscaling.
+                Defaults to None.
+            xmax: A float with the maximum y value or None for autoscaling.
+                Defaults to None.
+        """
         self._user_y_min = ymin
         self._user_y_max = ymax
         self._auto_y_min = ymin is None
@@ -159,9 +212,19 @@ class PlotWidget(Widget, can_focus=True):
         self.refresh()
 
     def set_xlabel(self, label: str) -> None:
+        """Set a label for the x axis.
+
+        Args:
+            label: A string with the label text.
+        """
         self._x_label = label
 
     def set_ylabel(self, label: str) -> None:
+        """Set a label for the y axis.
+
+        Args:
+            label: A string with the label text.
+        """
         self._y_label = label
 
     def refresh(
@@ -171,6 +234,7 @@ class PlotWidget(Widget, can_focus=True):
         layout: bool = False,
         recompose: bool = False,
     ) -> Self:
+        """Refresh the widget."""
         self._render_plot()
         return super().refresh(
             *regions, repaint=repaint, layout=layout, recompose=recompose
