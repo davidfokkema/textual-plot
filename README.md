@@ -8,6 +8,8 @@
 
 ![screenshot of moving sines](docs/images/screenshot-moving-sines.png)
 
+![video of plot demo](https://github.com/user-attachments/assets/dd725fdc-e182-4bed-8951-5899bdb99a20)
+
 ## Features
 
 - Line plots
