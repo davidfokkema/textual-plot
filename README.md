@@ -116,6 +116,7 @@ MinimalApp().run()
 
 Finally, the code of the demo is given below, showing how you can handle multiple plots and updating 'live' data:
 ```python
+import importlib.resources
 import itertools
 
 import numpy as np
@@ -139,14 +140,24 @@ class SpectrumPlot(Container):
         yield PlotWidget()
 
     def on_mount(self) -> None:
+        # Read CSV data included with this package
+        self.spectrum_csv = importlib.resources.read_text(
+            "textual_plot.resources", "morning-spectrum.csv"
+        ).splitlines()
+
+        # plot the spectrum and set ymin limit once
         self.plot_spectrum()
         self.query_one(PlotWidget).set_ylimits(ymin=0)
 
     def plot_spectrum(self) -> None:
-        plot = self.query_one(PlotWidget)
         x, y = np.genfromtxt(
-            "morning-spectrum.csv", delimiter=",", names=True, unpack=True
+            self.spectrum_csv,
+            delimiter=",",
+            names=True,
+            unpack=True,
         )
+
+        plot = self.query_one(PlotWidget)
         plot.clear()
         plot.plot(x, y, hires_mode=self.mode)
         plot.set_xlabel("Wavelength (nm)")
