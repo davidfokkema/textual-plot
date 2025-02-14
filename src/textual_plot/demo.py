@@ -1,3 +1,5 @@
+import itertools
+
 import numpy as np
 from textual.app import App, ComposeResult
 from textual.containers import Container
@@ -8,6 +10,13 @@ from textual_plot import PlotWidget
 
 
 class SpectrumPlot(Container):
+    BINDINGS = [("m", "cycle_modes", "Cycle Modes")]
+
+    _modes = itertools.cycle(
+        [HiResMode.QUADRANT, HiResMode.BRAILLE, None, HiResMode.HALFBLOCK]
+    )
+    mode = next(_modes)
+
     def compose(self) -> ComposeResult:
         yield PlotWidget()
 
@@ -19,10 +28,15 @@ class SpectrumPlot(Container):
         x, y = np.genfromtxt(
             "morning-spectrum.csv", delimiter=",", names=True, unpack=True
         )
-        plot.plot(x, y, hires_mode=HiResMode.QUADRANT)
+        plot.clear()
+        plot.plot(x, y, hires_mode=self.mode)
         plot.set_ylimits(ymin=0)
         plot.set_xlabel("Wavelength (nm)")
         plot.set_ylabel("Intensity")
+
+    def action_cycle_modes(self) -> None:
+        self.mode = next(self._modes)
+        self.plot_spectrum()
 
 
 class SinePlot(Container):
