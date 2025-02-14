@@ -1,3 +1,3 @@
-from textual_plot.plot_widget import PlotWidget
+from textual_plot.plot_widget import HiResMode, PlotWidget
 
-__all__ = ["PlotWidget"]
+__all__ = ["HiResMode", "PlotWidget"]
