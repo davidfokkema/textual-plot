@@ -8,6 +8,16 @@
 
 ![screenshot of moving sines](docs/images/screenshot-moving-sines.png)
 
+## Features
+
+- Line plots
+- Scatter plots
+- Automatic scaling and tick placement at _nice_ intervals (1, 2, 5, etc.)
+- Axes labels
+- High-resolution modes using unicode half blocks (1x2), quadrants (2x2) and braille (2x8) characters
+- Mouse support for _zooming_ (mouse scrolling) and _panning_ (mouse dragging)
+- Horizontal- or vertical-only zooming and panning when the mouse cursor is in the plot margins
+
 ## Running the demo / installation
 
 If you have [uv](https://astral.sh/uv/) installed, run
@@ -41,7 +51,11 @@ class MinimalApp(App[None]):
 
 MinimalApp().run()
 ```
-The code is quite simple. You simply include a `PlotWidget` in your compose method and after your UI has finished composing, you can start plotting data. The `plot()` method takes `x` and `y` data which should be array-like. It can be lists, or NumPy arrays, or really anything that can be turned into a NumPy array which is what's used internally. The `plot()` method further accepts a `line_style` argument which accepts Textual styles like `"white"`, `"red on blue3"`, etc. For standard low-resolution plots, it does not make much sense to specify a background color since the text character used for plotting is a full block filling an entire cell. The plot widget supports high-resolution plotting where the character does not take up the full cell:
+The code is quite simple. You simply include a `PlotWidget` in your compose method and after your UI has finished composing, you can start plotting data. The `plot()` method takes `x` and `y` data which should be array-like. It can be lists, or NumPy arrays, or really anything that can be turned into a NumPy array which is what's used internally. The `plot()` method further accepts a `line_style` argument which accepts Textual styles like `"white"`, `"red on blue3"`, etc. For standard low-resolution plots, it does not make much sense to specify a background color since the text character used for plotting is a full block filling an entire cell.
+
+### High-resolution plotting
+
+The plot widget supports high-resolution plotting where the character does not take up the full cell:
 
 ![screenshot of minimal hires example](docs/images/screenshot-minimal-hires.png)
 
@@ -69,6 +83,8 @@ MinimalApp().run()
 ```
 Admittedly, you'll be mostly plotting with foreground colors only. The plot widget supports four high-resolution modes: `Hires.BRAILLE` (2x8), `HiRes.HALFBLOCK` (1x2) and `HiRes.QUADRANT` (2x2) where the size between brackets is the number of 'pixels' inside a single cell.
 
+### Scatter plots
+
 To create scatter plots, use the `scatter()` method, which accepts a `marker` argument which can be any unicode character (as long as it is one cell wide, which excludes many emoji characters and non-Western scripts):
 ![screenshot of scatter plot](docs/images/screenshot-scatter.png)
 ```python
@@ -93,3 +109,143 @@ class MinimalApp(App[None]):
 
 MinimalApp().run()
 ```
+
+### The full demo code
+
+Finally, the code of the demo is given below, showing how you can handle multiple plots and updating 'live' data:
+```python
+import itertools
+
+import numpy as np
+from textual.app import App, ComposeResult
+from textual.containers import Container
+from textual.widgets import Footer, Header, TabbedContent, TabPane
+from textual_hires_canvas import HiResMode
+
+from textual_plot import PlotWidget
+
+
+class SpectrumPlot(Container):
+    BINDINGS = [("m", "cycle_modes", "Cycle Modes")]
+
+    _modes = itertools.cycle(
+        [HiResMode.QUADRANT, HiResMode.BRAILLE, None, HiResMode.HALFBLOCK]
+    )
+    mode = next(_modes)
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self.plot_spectrum()
+
+    def plot_spectrum(self) -> None:
+        plot = self.query_one(PlotWidget)
+        x, y = np.genfromtxt(
+            "morning-spectrum.csv", delimiter=",", names=True, unpack=True
+        )
+        plot.clear()
+        plot.plot(x, y, hires_mode=self.mode)
+        plot.set_ylimits(ymin=0)
+        plot.set_xlabel("Wavelength (nm)")
+        plot.set_ylabel("Intensity")
+
+    def action_cycle_modes(self) -> None:
+        self.mode = next(self._modes)
+        self.plot_spectrum()
+
+
+class SinePlot(Container):
+    _phi: float = 0.0
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self._timer = self.set_interval(1 / 24, self.plot_moving_sines, pause=True)
+
+    def on_show(self) -> None:
+        self._timer.resume()
+
+    def on_hide(self) -> None:
+        self._timer.pause()
+
+    def plot_moving_sines(self) -> None:
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+        x = np.linspace(0, 10, 41)
+        y = x**2 / 3.5
+        plot.scatter(
+            x,
+            y,
+            marker_style="blue",
+            # marker="*",
+            hires_mode=HiResMode.QUADRANT,
+        )
+        x = np.linspace(0, 10, 200)
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi),
+            line_style="blue",
+            hires_mode=None,
+        )
+
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 1),
+            line_style="red3",
+            hires_mode=HiResMode.HALFBLOCK,
+        )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 2),
+            line_style="green",
+            hires_mode=HiResMode.QUADRANT,
+        )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 3),
+            line_style="yellow",
+            hires_mode=HiResMode.BRAILLE,
+        )
+
+        self._phi += 0.1
+
+
+class DemoApp(App[None]):
+    AUTO_FOCUS = "PlotWidget"
+
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Footer()
+        with TabbedContent():
+            with TabPane("Daytime spectrum"):
+                yield SpectrumPlot()
+            with TabPane("Moving sines"):
+                yield SinePlot()
+
+
+def main():
+    app = DemoApp()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+## List of important plot widget methods
+
+- `clear()`: clear the plot.
+- `plot(x, y, line_style, hires_mode)`: plot a dataset with a line using the specified linestyle and high-resolution mode.
+- `scatter(x, y, marker, marker_style, hires_mode)`: plot a dataset with markers using the specified marker, marker style and high-resolution mode.
+- `set_xlimits(xmin, xmax)`: set the x-axis limits. `None` means autoscale.
+- `set_ylimits(xmin, xmax)`: set the y-axis limits. `None` means autoscale.
+- `set_xlabel(label)`: set the x-axis label.
+- `set_ylabel(label)`: set the y-axis label.
+
+Various other methods exist, mostly for coordinate transformations and handling UI events to zoom and pan the plot.
+
+## Alternatives
+
+[Textual-plotext](https://github.com/Textualize/textual-plotext) uses the [plotext](https://github.com/piccolomo/plotext) library which has much more features than this library. However, it does not support interactive zooming or panning and the tick placement isn't as nice since it simply divides up the axes range into a fixed number of intervals giving values like 0, 123.4, 246.8, etc.
