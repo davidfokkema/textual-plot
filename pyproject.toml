@@ -21,5 +21,8 @@ dev = [
     "textual-dev>=1.7.0",
 ]
 
+[project.scripts]
+textual-plot = "textual_plot.demo:main"
+
 [tool.mypy]
 plugins = "numpy.typing.mypy_plugin"

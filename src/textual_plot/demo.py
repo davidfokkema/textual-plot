@@ -97,6 +97,8 @@ class SinePlot(Container):
 
 
 class DemoApp(App[None]):
+    AUTO_FOCUS = "PlotWidget"
+
     def compose(self) -> ComposeResult:
         yield Header()
         yield Footer()
@@ -107,6 +109,10 @@ class DemoApp(App[None]):
                 yield SinePlot()
 
 
-if __name__ == "__main__":
+def main():
     app = DemoApp()
     app.run()
+
+
+if __name__ == "__main__":
+    main()
