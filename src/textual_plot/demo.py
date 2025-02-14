@@ -1,22 +1,20 @@
 import numpy as np
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Header
+from textual.containers import Container
+from textual.widgets import Footer, Header, TabbedContent, TabPane
 from textual_hires_canvas import HiResMode
 
 from textual_plot import PlotWidget
 
 
-class DemoApp(App[None]):
-    _phi: float = 0.0
-
+class SpectrumPlot(Container):
     def compose(self) -> ComposeResult:
-        yield Header()
-        yield Footer()
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        # self.set_interval(1 / 24, self.plot_refresh)
-        # self.plot_refresh()
+        self.plot_spectrum()
+
+    def plot_spectrum(self) -> None:
         plot = self.query_one(PlotWidget)
         x, y = np.genfromtxt(
             "morning-spectrum.csv", delimiter=",", names=True, unpack=True
@@ -26,7 +24,23 @@ class DemoApp(App[None]):
         plot.set_xlabel("Wavelength (nm)")
         plot.set_ylabel("Intensity")
 
-    def plot_refresh(self) -> None:
+
+class SinePlot(Container):
+    _phi: float = 0.0
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self._timer = self.set_interval(1 / 24, self.plot_moving_sines, pause=True)
+
+    def on_show(self) -> None:
+        self._timer.resume()
+
+    def on_hide(self) -> None:
+        self._timer.pause()
+
+    def plot_moving_sines(self) -> None:
         plot = self.query_one(PlotWidget)
         plot.clear()
         x = np.linspace(0, 10, 41)
@@ -66,6 +80,17 @@ class DemoApp(App[None]):
         )
 
         self._phi += 0.1
+
+
+class DemoApp(App[None]):
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Footer()
+        with TabbedContent():
+            with TabPane("Daytime spectrum"):
+                yield SpectrumPlot()
+            with TabPane("Moving sines"):
+                yield SinePlot()
 
 
 if __name__ == "__main__":
