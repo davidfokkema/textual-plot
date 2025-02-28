@@ -258,6 +258,13 @@ class PlotWidget(Widget, can_focus=True):
             if self._auto_y_max:
                 self._y_max = max(np.max(y) for y in ys)
 
+            if self._x_min == self._x_max:
+                self._x_min -= 1e-6
+                self._x_max += 1e-6
+            if self._y_min == self._y_max:
+                self._y_min -= 1e-6
+                self._y_max += 1e-6
+
         for dataset in self._datasets:
             if isinstance(dataset, ScatterPlot):
                 self._render_scatter_plot(dataset)
