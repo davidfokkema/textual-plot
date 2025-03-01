@@ -10,6 +10,7 @@ from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
 from textual.geometry import Region
+from textual.message import Message
 from textual.widget import Widget
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
@@ -41,6 +42,14 @@ class PlotWidget(Widget, can_focus=True):
     at 1, 2, 5, 10, 20, 50, etc. intervals and supports zooming and panning with
     your pointer device.
     """
+
+    @dataclass
+    class ScaleChanged(Message):
+        plot: "PlotWidget"
+        x_min: float
+        x_max: float
+        y_min: float
+        y_max: float
 
     DEFAULT_CSS = """
         PlotWidget {
@@ -486,6 +495,11 @@ class PlotWidget(Widget, can_focus=True):
                 self._auto_y_max = False
                 self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
                 self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+            self.post_message(
+                self.ScaleChanged(
+                    self, self._x_min, self._x_max, self._y_min, self._y_max
+                )
+            )
             self.refresh()
 
     @on(MouseScrollUp)
@@ -510,6 +524,11 @@ class PlotWidget(Widget, can_focus=True):
                 self._auto_y_max = False
                 self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
                 self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
+            self.post_message(
+                self.ScaleChanged(
+                    self, self._x_min, self._x_max, self._y_min, self._y_max
+                )
+            )
             self.refresh()
 
     @on(MouseMove)
@@ -533,6 +552,9 @@ class PlotWidget(Widget, can_focus=True):
             self._auto_y_max = False
             self._y_min += dy * event.delta_y
             self._y_max += dy * event.delta_y
+        self.post_message(
+            self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
+        )
         self.refresh()
 
     def action_reset_scales(self) -> None:
