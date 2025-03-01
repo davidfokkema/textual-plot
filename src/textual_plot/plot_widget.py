@@ -562,6 +562,9 @@ class PlotWidget(Widget, can_focus=True):
     def action_reset_scales(self) -> None:
         self.set_xlimits(self._user_x_min, self._user_x_max)
         self.set_ylimits(self._user_y_min, self._user_y_max)
+        self.post_message(
+            self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
+        )
         self.refresh()
 
 
