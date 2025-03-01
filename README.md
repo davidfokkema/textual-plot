@@ -24,14 +24,32 @@ The _daytime spectrum_ dataset shows the visible-light spectrum recorded by an O
 
 ## Running the demo / installation
 
-If you have [uv](https://astral.sh/uv/) installed, run
+Using [uv](https://astral.sh/uv/):
 ```console
 uvx textual-plot
 ```
-If you use pipx, replace `uvx` with `pipx`. Alternatively, install the package with `pip` and run the demo:
+
+Using [pipx](https://pipx.pypa.io/):
+```console
+pipx run textual-plot
+```
+
+Install the package with either
+```console
+uv tool install textual-plot
+```
+or
+```console
+pipx install textual-plot
+```
+Alternatively, install the package with `pip` (please, use virtual environments) and run the demo:
 ```console
 pip install textual-plot
-python -m textual_plot.demo
+```
+
+In all cases, you can run the demo with
+```console
+textual-plot
 ```
 
 ## Tutorial
