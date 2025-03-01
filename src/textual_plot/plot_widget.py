@@ -142,10 +142,11 @@ class PlotWidget(Widget, can_focus=True):
             hires_mode: A HiResMode enum or None to plot with full-height
                 blocks. Defaults to None.
         """
+        x, y = drop_nans_and_infs(np.array(x), np.array(y))
         self._datasets.append(
             LinePlot(
-                x=np.array(x),
-                y=np.array(y),
+                x=x,
+                y=y,
                 line_style=line_style,
                 hires_mode=hires_mode,
             )
@@ -175,10 +176,11 @@ class PlotWidget(Widget, can_focus=True):
             hires_mode: A HiResMode enum or None to plot with the supplied
                 marker. Defaults to None.
         """
+        x, y = drop_nans_and_infs(np.array(x), np.array(y))
         self._datasets.append(
             ScatterPlot(
-                x=np.array(x),
-                y=np.array(y),
+                x=x,
+                y=y,
                 marker=marker,
                 marker_style=marker_style,
                 hires_mode=hires_mode,
@@ -616,3 +618,17 @@ def linear_mapper(
     b_prime: float | int,
 ) -> float | np.floating:
     return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
+
+
+def drop_nans_and_infs(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Drop NaNs and Infs from x and y arrays.
+
+    Args:
+        x: An array with the data values for the horizontal axis.
+        y: An array with the data values for the vertical axis.
+
+    Returns:
+        A tuple of arrays with NaNs and Infs removed.
+    """
+    mask = ~np.isnan(x) & ~np.isnan(y) & ~np.isinf(x) & ~np.isinf(y)
+    return x[mask], y[mask]
