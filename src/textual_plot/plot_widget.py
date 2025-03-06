@@ -89,8 +89,28 @@ class PlotWidget(Widget, can_focus=True):
 
     _is_dragging: bool = False
 
-    def __init__(self, id: str | None = None) -> None:
-        super().__init__(id=id)
+    def __init__(
+        self,
+        name: str | None = None,
+        id: str | None = None,
+        classes: str | None = None,
+        *,
+        disabled: bool = False,
+    ) -> None:
+        """Initializes the plot widget with basic widget parameters.
+
+        Params:
+            name: The name of the widget.
+            id: The ID of the widget in the DOM.
+            classes: The CSS classes for the widget.
+            disabled: Whether the widget is disabled or not.
+        """
+        super().__init__(
+            name=name,
+            id=id,
+            classes=classes,
+            disabled=disabled,
+        )
 
     def compose(self) -> ComposeResult:
         with Grid():
