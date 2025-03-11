@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from math import ceil, floor, log10
-from typing import Self
+from typing import Iterable, Self
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -79,6 +79,9 @@ class PlotWidget(Widget, can_focus=True):
     _x_max: float
     _y_min: float
     _y_max: float
+
+    _x_ticks: Iterable[float] | None = None
+    _y_ticks: Iterable[float] | None = None
 
     _margin_top: int = 2
     _margin_bottom: int = 3
@@ -263,6 +266,26 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._y_label = label
 
+    def set_xticks(self, ticks: Iterable[float] | None = None) -> None:
+        """Set the x axis ticks.
+
+        Use None for autoscaling, an empty list to hide the ticks.
+
+        Args:
+            ticks: An iterable with the tick values.
+        """
+        self._x_ticks = ticks
+
+    def set_yticks(self, ticks: Iterable[float] | None = None) -> None:
+        """Set the y axis ticks.
+
+        Use None for autoscaling, an empty list to hide the ticks.
+
+        Args:
+            ticks: An iterable with the tick values.
+        """
+        self._y_ticks = ticks
+
     def refresh(
         self,
         *regions: Region,
@@ -364,8 +387,14 @@ class PlotWidget(Widget, can_focus=True):
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
-        x_ticks, x_labels = self.get_ticks_between(self._x_min, self._x_max)
+        if self._x_ticks is None:
+            x_ticks, x_labels = self.get_ticks_between(self._x_min, self._x_max)
+        else:
+            x_ticks = self._x_ticks
+            x_labels = self.get_labels_for_ticks(x_ticks)
         for tick, label in zip(x_ticks, x_labels):
+            if tick < self._x_min or tick > self._x_max:
+                continue
             align = TextAlign.CENTER
             # only interested in the x-coordinate, set y to 0.0
             x, _ = self.get_pixel_from_coordinate(tick, 0.0)
@@ -388,9 +417,15 @@ class PlotWidget(Widget, can_focus=True):
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
-        y_ticks, y_labels = self.get_ticks_between(self._y_min, self._y_max)
+        if self._y_ticks is None:
+            y_ticks, y_labels = self.get_ticks_between(self._y_min, self._y_max)
+        else:
+            y_ticks = self._y_ticks
+            y_labels = self.get_labels_for_ticks(y_ticks)
         align = TextAlign.RIGHT
         for tick, label in zip(y_ticks, y_labels):
+            if tick < self._y_min or tick > self._y_max:
+                continue
             # only interested in the x-coordinate, set x to 0.0
             _, y = self.get_pixel_from_coordinate(0.0, tick)
             if tick == self._y_min:
@@ -441,8 +476,31 @@ class PlotWidget(Widget, can_focus=True):
             for t in np.arange(ceil(min_ / interval), max_ // interval + 1)
         ]
         decimals = -min(0, power)
-        tick_labels = [f"{tick:.{decimals}f}" for tick in ticks]
+        tick_labels = self.get_labels_for_ticks(ticks, decimals)
         return ticks, tick_labels
+
+    def get_labels_for_ticks(
+        self, ticks: list[float], decimals: int | None = None
+    ) -> list[str]:
+        """Generate formatted labels for given tick values.
+
+        Args:
+            ticks: A list of tick values to be formatted.
+            decimals: The number of decimal places for formatting the tick values.
+
+        Returns:
+            A list of formatted tick labels as strings.
+        """
+        if not ticks:
+            return []
+        if decimals is None:
+            if len(ticks) >= 2:
+                power = floor(log10(ticks[1] - ticks[0]))
+            else:
+                power = 0
+            decimals = -min(0, power)
+        tick_labels = [f"{tick:.{decimals}f}" for tick in ticks]
+        return tick_labels
 
     def combine_quad_with_pixel(
         self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int

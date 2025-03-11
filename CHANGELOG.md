@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `PlotWidget` now has name, classes and disabled parameters.
 - Added `allow_pan_and_zoom` parameter to allow or disable panning and zooming the plot.
+- Added setting x and y ticks to specific values, or an empty list to hide the ticks.
 
 ## [0.2.0] - 2025-03-01
 
