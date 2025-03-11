@@ -87,10 +87,12 @@ class PlotWidget(Widget, can_focus=True):
     _x_label: str = ""
     _y_label: str = ""
 
+    _allow_pan_and_zoom: bool = True
     _is_dragging: bool = False
 
     def __init__(
         self,
+        allow_pan_and_zoom: bool = True,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
@@ -100,6 +102,8 @@ class PlotWidget(Widget, can_focus=True):
         """Initializes the plot widget with basic widget parameters.
 
         Params:
+            allow_pan_and_zoom: Whether to allow panning and zooming the plot.
+                Defaults to True.
             name: The name of the widget.
             id: The ID of the widget in the DOM.
             classes: The CSS classes for the widget.
@@ -111,6 +115,7 @@ class PlotWidget(Widget, can_focus=True):
             classes=classes,
             disabled=disabled,
         )
+        self._allow_pan_and_zoom = allow_pan_and_zoom
 
     def compose(self) -> ComposeResult:
         with Grid():
@@ -497,6 +502,8 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
+        if not self._allow_pan_and_zoom:
+            return
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
@@ -526,6 +533,8 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollDown) -> None:
+        if not self._allow_pan_and_zoom:
+            return
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
@@ -555,6 +564,8 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseMove)
     def drag_plot(self, event: MouseMove) -> None:
+        if not self._allow_pan_and_zoom:
+            return
         if event.button == 0:
             # If no button is pressed, don't drag.
             return
