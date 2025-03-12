@@ -558,8 +558,7 @@ class PlotWidget(Widget, can_focus=True):
             region=scale_rectangle,
         )
 
-    @on(MouseScrollDown)
-    def zoom_in(self, event: MouseScrollDown) -> None:
+    def _zoom(self, event: MouseScrollDown | MouseScrollUp, factor: float) -> None:
         if not self._allow_pan_and_zoom:
             return
         if (offset := event.get_content_offset(self)) is not None:
@@ -567,21 +566,18 @@ class PlotWidget(Widget, can_focus=True):
             canvas = self.query_one("#plot", Canvas)
             assert canvas.scale_rectangle is not None
             if widget.id == "bottom-margin":
-                # Bottom margin is wider than the plot canvas. For x-scale
-                # zooming, we want to have the x-coordinate relative to the plot
-                # canvas, not relative to the bottom margin.
                 offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
             if widget.id in ("plot", "bottom-margin"):
                 self._auto_x_min = False
                 self._auto_x_max = False
-                self._x_min = (self._x_min + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
-                self._x_max = (self._x_max + ZOOM_FACTOR * x) / (1 + ZOOM_FACTOR)
+                self._x_min = (self._x_min + factor * x) / (1 + factor)
+                self._x_max = (self._x_max + factor * x) / (1 + factor)
             if widget.id in ("plot", "left-margin"):
                 self._auto_y_min = False
                 self._auto_y_max = False
-                self._y_min = (self._y_min + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
-                self._y_max = (self._y_max + ZOOM_FACTOR * y) / (1 + ZOOM_FACTOR)
+                self._y_min = (self._y_min + factor * y) / (1 + factor)
+                self._y_max = (self._y_max + factor * y) / (1 + factor)
             self.post_message(
                 self.ScaleChanged(
                     self, self._x_min, self._x_max, self._y_min, self._y_max
@@ -589,36 +585,13 @@ class PlotWidget(Widget, can_focus=True):
             )
             self.refresh()
 
+    @on(MouseScrollDown)
+    def zoom_in(self, event: MouseScrollDown) -> None:
+        self._zoom(event, ZOOM_FACTOR)
+
     @on(MouseScrollUp)
-    def zoom_out(self, event: MouseScrollDown) -> None:
-        if not self._allow_pan_and_zoom:
-            return
-        if (offset := event.get_content_offset(self)) is not None:
-            widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
-            canvas = self.query_one("#plot", Canvas)
-            assert canvas.scale_rectangle is not None
-            if widget.id == "bottom-margin":
-                # Bottom margin is wider than the plot canvas. For x-scale
-                # zooming, we want to have the x-coordinate relative to the plot
-                # canvas, not relative to the bottom margin.
-                offset = event.screen_offset - self.screen.get_offset(canvas)
-            x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
-            if widget.id in ("plot", "bottom-margin"):
-                self._auto_x_min = False
-                self._auto_x_max = False
-                self._x_min = (self._x_min - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
-                self._x_max = (self._x_max - ZOOM_FACTOR * x) / (1 - ZOOM_FACTOR)
-            if widget.id in ("plot", "left-margin"):
-                self._auto_y_min = False
-                self._auto_y_max = False
-                self._y_min = (self._y_min - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
-                self._y_max = (self._y_max - ZOOM_FACTOR * y) / (1 - ZOOM_FACTOR)
-            self.post_message(
-                self.ScaleChanged(
-                    self, self._x_min, self._x_max, self._y_min, self._y_max
-                )
-            )
-            self.refresh()
+    def zoom_out(self, event: MouseScrollUp) -> None:
+        self._zoom(event, -ZOOM_FACTOR)
 
     @on(MouseMove)
     def drag_plot(self, event: MouseMove) -> None:
