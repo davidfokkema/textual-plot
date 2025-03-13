@@ -468,7 +468,7 @@ class PlotWidget(Widget, can_focus=True):
         intervals = np.array([1, 2, 5, 10])
 
         idx = intervals.searchsorted(approx_interval)
-        interval = intervals[idx - 1] * 10**power
+        interval = (intervals[idx - 1] if idx > 0 else intervals[0]) * 10**power
         if delta_x // interval > max_ticks:
             interval = intervals[idx] * 10**power
         ticks = [
