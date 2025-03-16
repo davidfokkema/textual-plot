@@ -133,11 +133,9 @@ class PlotWidget(Widget, can_focus=True):
         self.set_ylimits(None, None)
         self.clear()
 
-    def _on_resize(self) -> None:
-        self.call_later(self.refresh)
-
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
+        self.call_later(self.refresh)
 
     def _update_margin_sizes(self) -> None:
         grid = self.query_one(Grid)
