@@ -136,6 +136,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
+        self._needs_rerender = True
         self.call_later(self.refresh)
 
     def _update_margin_sizes(self) -> None:
