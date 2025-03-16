@@ -705,7 +705,7 @@ wheels = [
 
 [[package]]
 name = "textual-plot"
-version = "0.4.0"
+version = "0.4.0.post1"
 source = { editable = "." }
 dependencies = [
     { name = "numpy" },

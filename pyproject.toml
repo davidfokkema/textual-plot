@@ -1,6 +1,6 @@
 [project]
 name = "textual-plot"
-version = "0.4.0"
+version = "0.4.0.post1"
 description = "A native plotting widget for Textual apps"
 readme = "README.md"
 authors = [{ name = "David Fokkema", email = "davidfokkema@icloud.com" }]
