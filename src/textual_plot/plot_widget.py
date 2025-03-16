@@ -581,7 +581,7 @@ class PlotWidget(Widget, can_focus=True):
                     self, self._x_min, self._x_max, self._y_min, self._y_max
                 )
             )
-            self.refresh()
+            self.call_later(self.refresh)
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
