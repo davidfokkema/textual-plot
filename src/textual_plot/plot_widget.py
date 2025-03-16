@@ -92,6 +92,7 @@ class PlotWidget(Widget, can_focus=True):
 
     _allow_pan_and_zoom: bool = True
     _is_dragging: bool = False
+    _needs_rerender: bool = False
 
     def __init__(
         self,
@@ -145,6 +146,7 @@ class PlotWidget(Widget, can_focus=True):
     def clear(self) -> None:
         """Clear the plot canvas."""
         self._datasets = []
+        self._needs_rerender = True
         self.refresh()
 
     def plot(
@@ -177,6 +179,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
+        self._needs_rerender = True
         self.refresh()
 
     def scatter(
@@ -212,6 +215,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
+        self._needs_rerender = True
         self.refresh()
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
@@ -229,6 +233,7 @@ class PlotWidget(Widget, can_focus=True):
         self._auto_x_max = xmax is None
         self._x_min = xmin if xmin is not None else 0.0
         self._x_max = xmax if xmax is not None else 1.0
+        self._needs_rerender = True
         self.refresh()
 
     def set_ylimits(self, ymin: float | None = None, ymax: float | None = None) -> None:
@@ -246,6 +251,7 @@ class PlotWidget(Widget, can_focus=True):
         self._auto_y_max = ymax is None
         self._y_min = ymin if ymin is not None else 0.0
         self._y_max = ymax if ymax is not None else 1.0
+        self._needs_rerender = True
         self.refresh()
 
     def set_xlabel(self, label: str) -> None:
@@ -300,41 +306,47 @@ class PlotWidget(Widget, can_focus=True):
     def _render_plot(self) -> None:
         if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
             return
-        # clear canvas
-        canvas.reset()
 
-        if self._datasets:
-            xs = [dataset.x for dataset in self._datasets]
-            ys = [dataset.y for dataset in self._datasets]
-            if self._auto_x_min:
-                self._x_min = min(np.min(x) for x in xs)
-            if self._auto_x_max:
-                self._x_max = max(np.max(x) for x in xs)
-            if self._auto_y_min:
-                self._y_min = min(np.min(y) for y in ys)
-            if self._auto_y_max:
-                self._y_max = max(np.max(y) for y in ys)
+        if self._needs_rerender:
+            self._needs_rerender = False
+            # clear canvas
+            canvas.reset()
 
-            if self._x_min == self._x_max:
-                self._x_min -= 1e-6
-                self._x_max += 1e-6
-            if self._y_min == self._y_max:
-                self._y_min -= 1e-6
-                self._y_max += 1e-6
+            # determine axis limits
+            if self._datasets:
+                xs = [dataset.x for dataset in self._datasets]
+                ys = [dataset.y for dataset in self._datasets]
+                if self._auto_x_min:
+                    self._x_min = min(np.min(x) for x in xs)
+                if self._auto_x_max:
+                    self._x_max = max(np.max(x) for x in xs)
+                if self._auto_y_min:
+                    self._y_min = min(np.min(y) for y in ys)
+                if self._auto_y_max:
+                    self._y_max = max(np.max(y) for y in ys)
 
-        for dataset in self._datasets:
-            if isinstance(dataset, ScatterPlot):
-                self._render_scatter_plot(dataset)
-            elif isinstance(dataset, LinePlot):
-                self._render_line_plot(dataset)
+                if self._x_min == self._x_max:
+                    self._x_min -= 1e-6
+                    self._x_max += 1e-6
+                if self._y_min == self._y_max:
+                    self._y_min -= 1e-6
+                    self._y_max += 1e-6
 
-        canvas.draw_rectangle_box(
-            0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
-        )
-        self._render_x_ticks()
-        self._render_y_ticks()
-        self._render_x_label()
-        self._render_y_label()
+            # render datasets
+            for dataset in self._datasets:
+                if isinstance(dataset, ScatterPlot):
+                    self._render_scatter_plot(dataset)
+                elif isinstance(dataset, LinePlot):
+                    self._render_line_plot(dataset)
+
+            # render axis, ticks and labels
+            canvas.draw_rectangle_box(
+                0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
+            )
+            self._render_x_ticks()
+            self._render_y_ticks()
+            self._render_x_label()
+            self._render_y_label()
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -581,6 +593,7 @@ class PlotWidget(Widget, can_focus=True):
                     self, self._x_min, self._x_max, self._y_min, self._y_max
                 )
             )
+            self._needs_rerender = True
             self.call_later(self.refresh)
 
     @on(MouseScrollDown)
