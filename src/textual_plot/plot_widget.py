@@ -605,7 +605,7 @@ class PlotWidget(Widget, can_focus=True):
         self._zoom(event, -ZOOM_FACTOR)
 
     @on(MouseMove)
-    def drag_plot(self, event: MouseMove) -> None:
+    def pan_plot(self, event: MouseMove) -> None:
         if not self._allow_pan_and_zoom:
             return
         if event.button == 0:
@@ -630,7 +630,8 @@ class PlotWidget(Widget, can_focus=True):
         self.post_message(
             self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
         )
-        self.refresh()
+        self._needs_rerender = True
+        self.call_later(self.refresh)
 
     def action_reset_scales(self) -> None:
         self.set_xlimits(self._user_x_min, self._user_x_max)
