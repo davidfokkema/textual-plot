@@ -75,10 +75,10 @@ class PlotWidget(Widget, can_focus=True):
     _auto_x_max: bool = True
     _auto_y_min: bool = True
     _auto_y_max: bool = True
-    _x_min: float
-    _x_max: float
-    _y_min: float
-    _y_max: float
+    _x_min: float = 0.0
+    _x_max: float = 1.0
+    _y_min: float = 0.0
+    _y_max: float = 1.0
 
     _x_ticks: Iterable[float] | None = None
     _y_ticks: Iterable[float] | None = None
@@ -119,14 +119,15 @@ class PlotWidget(Widget, can_focus=True):
             classes=classes,
             disabled=disabled,
         )
+        self._datasets = []
         self._allow_pan_and_zoom = allow_pan_and_zoom
 
     def compose(self) -> ComposeResult:
         with Grid():
-            yield Canvas(id="top-margin")
-            yield Canvas(id="left-margin")
-            yield Canvas(id="plot")
-            yield Canvas(id="bottom-margin")
+            yield Canvas(1, 1, id="top-margin")
+            yield Canvas(1, 1, id="left-margin")
+            yield Canvas(1, 1, id="plot")
+            yield Canvas(1, 1, id="bottom-margin")
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
