@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from math import ceil, floor, log10
 from typing import Iterable, Self
