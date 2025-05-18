@@ -1,6 +1,14 @@
+from __future__ import annotations
+
+import sys
 from dataclasses import dataclass
 from math import ceil, floor, log10
-from typing import Iterable, Self
+from typing import Iterable
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
