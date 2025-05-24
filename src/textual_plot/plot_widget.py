@@ -608,10 +608,12 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
+        event.stop()
         self._zoom(event, ZOOM_FACTOR)
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollUp) -> None:
+        event.stop()
         self._zoom(event, -ZOOM_FACTOR)
 
     @on(MouseMove)

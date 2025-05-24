@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Lower Python version requirements back to 3.10.
 
+### Fixed
+
+- Zooming the plot no longer scrolls the container the plot is in.
+
 ## [0.5.0] - 2025-05-01
 
 ### Fixed
