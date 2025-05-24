@@ -442,11 +442,13 @@ class PlotWidget(Widget, can_focus=True):
         else:
             y_ticks = self._y_ticks
             y_labels = self.get_labels_for_ticks(y_ticks)
+        # truncate y-labels to the left margin width
+        y_labels = [label[: self._margin_left - 1] for label in y_labels]
         align = TextAlign.RIGHT
         for tick, label in zip(y_ticks, y_labels):
             if tick < self._y_min or tick > self._y_max:
                 continue
-            # only interested in the x-coordinate, set x to 0.0
+            # only interested in the y-coordinate, set x to 0.0
             _, y = self.get_pixel_from_coordinate(0.0, tick)
             if tick == self._y_min:
                 y += 1
