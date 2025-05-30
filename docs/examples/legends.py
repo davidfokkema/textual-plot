@@ -32,7 +32,7 @@ class MinimalApp(App[None]):
         plot.plot(
             x,
             y + 4,
-            label="Series 4",
+            # label="Series 4",
             hires_mode=HiResMode.HALFBLOCK,
         )
         plot.plot(

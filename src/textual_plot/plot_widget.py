@@ -455,7 +455,8 @@ class PlotWidget(Widget, can_focus=True):
     ) -> None:
         """Display a legend for the datasets in the plot."""
         canvas = self.query_one("#plot", Canvas)
-        max_length = max((len(s) for s in self._labels if s is not None), default=0)
+        labels = [label for label in self._labels if label is not None]
+        max_length = max((len(s) for s in labels))
         if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             # I like a little padding on the left side of the block characters
             x0 = 2
@@ -466,7 +467,7 @@ class PlotWidget(Widget, can_focus=True):
         y0 = (
             1
             if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
-            else canvas.size.height - 1 - len(self._labels)
+            else canvas.size.height - 1 - len(labels)
         )
 
         if show_border:
@@ -484,13 +485,13 @@ class PlotWidget(Widget, can_focus=True):
             left = x0 - 1
             right = x0 + max_length + 4
             top = y0 - 1
-            bottom = y0 + len(self._labels)
+            bottom = y0 + len(labels)
             canvas.draw_filled_quad(
                 left, top, left, bottom, right, bottom, right, top, style="black"
             )
             canvas.draw_rectangle_box(left, top, right, bottom)
 
-        for idx, (label, dataset) in enumerate(zip(self._labels, self._datasets)):
+        for idx, (label, dataset) in enumerate(zip(labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
                     marker = (
