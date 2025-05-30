@@ -457,50 +457,40 @@ class PlotWidget(Widget, can_focus=True):
         canvas = self.query_one("#plot", Canvas)
         max_length = max((len(s) for s in self._labels if s is not None), default=0)
         if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+            # I like a little padding on the left side of the block characters
             x0 = 2
-            text_align = TextAlign.LEFT
-            labels = self._labels
         elif location in (LegendLocation.TOPRIGHT, LegendLocation.BOTTOMRIGHT):
-            x0 = canvas.size.width - 3
-            text_align = TextAlign.RIGHT
-            labels = [
-                label.ljust(max_length) if label is not None else None
-                for label in self._labels
-            ]
+            x0 = canvas.size.width - 1 - max_length - 4
         else:
             raise RuntimeError(f"Unsupported legend location: {location}")
+        y0 = (
+            1
+            if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
+            else canvas.size.height - 1 - len(self._labels)
+        )
 
         if show_border:
-            y0 = (
-                2
+            y0 += (
+                1
                 if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
-                else canvas.size.height - 2 - len(self._labels)
+                else -1
+            )
+            x0 += (
+                0
+                if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT)
+                else -1
             )
 
-            xbox = (
-                x0
-                if location
-                in (
-                    LegendLocation.TOPLEFT,
-                    LegendLocation.BOTTOMLEFT,
-                )
-                else x0 - max_length - 3
-            )
-            left = xbox - 1
-            right = xbox + max_length + 4
+            left = x0 - 1
+            right = x0 + max_length + 4
             top = y0 - 1
-            bottom = y0 + len(labels)
+            bottom = y0 + len(self._labels)
             canvas.draw_filled_quad(
                 left, top, left, bottom, right, bottom, right, top, style="black"
             )
             canvas.draw_rectangle_box(left, top, right, bottom)
-        else:
-            y0 = (
-                1
-                if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
-                else canvas.size.height - 1 - len(self._labels)
-            )
-        for idx, (label, dataset) in enumerate(zip(labels, self._datasets)):
+
+        for idx, (label, dataset) in enumerate(zip(self._labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
                     marker = (
@@ -516,7 +506,7 @@ class PlotWidget(Widget, can_focus=True):
                     # unsupported dataset type
                     continue
                 text = Content(marker).stylize(style).append(f" {label}")
-                canvas.write_text(x0, y0 + idx, text=text.markup, align=text_align)
+                canvas.write_text(x0, y0 + idx, text=text.markup)
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
