@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 import sys
 from dataclasses import dataclass
 from math import ceil, floor, log10
@@ -38,6 +39,15 @@ LEGEND_MARKER = {
     HiResMode.HALFBLOCK: "▀",
     HiResMode.QUADRANT: "▘",
 }
+
+
+class LegendLocation(enum.Enum):
+    """An enum to specify the location of the legend in the plot widget."""
+
+    TOPLEFT = enum.auto()
+    TOPRIGHT = enum.auto()
+    BOTTOMLEFT = enum.auto()
+    BOTTOMRIGHT = enum.auto()
 
 
 @dataclass
@@ -440,17 +450,50 @@ class PlotWidget(Widget, can_focus=True):
             for i in range(1, len(pixels)):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
 
-    def _render_legend(self) -> None:
+    def _render_legend(
+        self, location: LegendLocation = LegendLocation.TOPRIGHT
+    ) -> None:
         """Display a legend for the datasets in the plot."""
         canvas = self.query_one("#plot", Canvas)
-        for idx, (label, dataset) in enumerate(zip(self._labels, self._datasets)):
+        match location:
+            case LegendLocation.TOPLEFT:
+                x0, y0 = 2, 1
+                text_align = TextAlign.LEFT
+                labels = self._labels
+            case LegendLocation.BOTTOMLEFT:
+                x0, y0 = 2, canvas.size.height - 1 - len(self._labels)
+                text_align = TextAlign.LEFT
+                labels = self._labels
+            case LegendLocation.TOPRIGHT:
+                x0, y0 = canvas.size.width - 3, 1
+                text_align = TextAlign.RIGHT
+                max_length = max(len(s) for s in self._labels)
+                labels = [
+                    label.ljust(max_length) if label is not None else None
+                    for label in self._labels
+                ]
+            case LegendLocation.BOTTOMRIGHT:
+                x0, y0 = (
+                    canvas.size.width - 3,
+                    canvas.size.height - 1 - len(self._labels),
+                )
+                text_align = TextAlign.RIGHT
+                max_length = max(len(s) for s in self._labels)
+                labels = [
+                    label.ljust(max_length) if label is not None else None
+                    for label in self._labels
+                ]
+            case _:
+                # unsupported location
+                raise RuntimeError(f"Unsupported legend location: {location}")
+        for idx, (label, dataset) in enumerate(zip(labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
                     marker = (
                         dataset.marker
                         if dataset.hires_mode is None
                         else LEGEND_MARKER[dataset.hires_mode]
-                    )
+                    ).center(3)
                     style = dataset.marker_style
                 elif isinstance(dataset, LinePlot):
                     marker = LEGEND_LINE[dataset.hires_mode]
@@ -458,8 +501,8 @@ class PlotWidget(Widget, can_focus=True):
                 else:
                     # unsupported dataset type
                     continue
-                text = Content(f" {marker} ").stylize(style).append(f" {label}")
-                canvas.write_text(2, 1 + idx, text.markup)
+                text = Content(marker).stylize(style).append(f" {label}")
+                canvas.write_text(x0, y0 + idx, text=text.markup, align=text_align)
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
