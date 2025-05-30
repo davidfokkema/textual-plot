@@ -455,37 +455,26 @@ class PlotWidget(Widget, can_focus=True):
     ) -> None:
         """Display a legend for the datasets in the plot."""
         canvas = self.query_one("#plot", Canvas)
-        match location:
-            case LegendLocation.TOPLEFT:
-                x0, y0 = 2, 1
-                text_align = TextAlign.LEFT
-                labels = self._labels
-            case LegendLocation.BOTTOMLEFT:
-                x0, y0 = 2, canvas.size.height - 1 - len(self._labels)
-                text_align = TextAlign.LEFT
-                labels = self._labels
-            case LegendLocation.TOPRIGHT:
-                x0, y0 = canvas.size.width - 3, 1
-                text_align = TextAlign.RIGHT
-                max_length = max(len(s) for s in self._labels)
-                labels = [
-                    label.ljust(max_length) if label is not None else None
-                    for label in self._labels
-                ]
-            case LegendLocation.BOTTOMRIGHT:
-                x0, y0 = (
-                    canvas.size.width - 3,
-                    canvas.size.height - 1 - len(self._labels),
-                )
-                text_align = TextAlign.RIGHT
-                max_length = max(len(s) for s in self._labels)
-                labels = [
-                    label.ljust(max_length) if label is not None else None
-                    for label in self._labels
-                ]
-            case _:
-                # unsupported location
-                raise RuntimeError(f"Unsupported legend location: {location}")
+        if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+            x0 = 2
+            text_align = TextAlign.LEFT
+            labels = self._labels
+        elif location in (LegendLocation.TOPRIGHT, LegendLocation.BOTTOMRIGHT):
+            x0 = canvas.size.width - 3
+            text_align = TextAlign.RIGHT
+            max_length = max((len(s) for s in self._labels if s is not None), default=0)
+            labels = [
+                label.ljust(max_length) if label is not None else None
+                for label in self._labels
+            ]
+        else:
+            raise RuntimeError(f"Unsupported legend location: {location}")
+
+        y0 = (
+            1
+            if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
+            else canvas.size.height - 1 - len(self._labels)
+        )
         for idx, (label, dataset) in enumerate(zip(labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
