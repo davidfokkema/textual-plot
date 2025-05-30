@@ -20,9 +20,10 @@ from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
-from textual.geometry import Region
+from textual.geometry import Offset, Region
 from textual.message import Message
 from textual.widget import Widget
+from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
@@ -86,12 +87,21 @@ class PlotWidget(Widget, can_focus=True):
 
     DEFAULT_CSS = """
         PlotWidget {
+            layers: plot legend;
+
             Grid {
+                layer: plot;
                 grid-size: 2 3;
 
                 #top-margin, #bottom-margin {
                     column-span: 2;
                 }
+            }
+
+            #legend {
+              layer: legend;
+              width: auto;
+              border: solid white;
             }
         }
     """
@@ -120,12 +130,12 @@ class PlotWidget(Widget, can_focus=True):
     _margin_top: int = 2
     _margin_bottom: int = 3
     _margin_left: int = 10
+    _legend_location: LegendLocation = LegendLocation.TOPRIGHT
 
     _x_label: str = ""
     _y_label: str = ""
 
     _allow_pan_and_zoom: bool = True
-    _show_legend: bool = False
     _is_dragging: bool = False
     _needs_rerender: bool = False
 
@@ -164,6 +174,7 @@ class PlotWidget(Widget, can_focus=True):
             yield Canvas(1, 1, id="left-margin")
             yield Canvas(1, 1, id="plot")
             yield Canvas(1, 1, id="bottom-margin")
+        yield Static(id="legend")
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
@@ -335,16 +346,74 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._y_ticks = ticks
 
-    def show_legend(self, is_visible: bool = True) -> None:
+    def show_legend(
+        self,
+        location: LegendLocation = LegendLocation.TOPLEFT,
+        is_visible: bool = True,
+    ) -> None:
         """Show or hide the legend for the datasets in the plot.
 
         Args:
             is_visible: A boolean indicating whether to show the legend.
                 Defaults to True.
         """
-        self._show_legend = is_visible
-        self._needs_rerender = True
-        self.refresh()
+        self.query_one("#legend", Static).display = is_visible
+        if not is_visible:
+            return
+
+        legend_lines = []
+        if isinstance(location, LegendLocation):
+            self._legend_location = location
+        else:
+            raise TypeError(
+                f"Expected LegendLocation, got {type(location).__name__} instead."
+            )
+
+        for label, dataset in zip(self._labels, self._datasets):
+            if label is not None:
+                if isinstance(dataset, ScatterPlot):
+                    marker = (
+                        dataset.marker
+                        if dataset.hires_mode is None
+                        else LEGEND_MARKER[dataset.hires_mode]
+                    ).center(3)
+                    style = dataset.marker_style
+                elif isinstance(dataset, LinePlot):
+                    marker = LEGEND_LINE[dataset.hires_mode]
+                    style = dataset.line_style
+                else:
+                    # unsupported dataset type
+                    continue
+                text = Content(marker).stylize(style).append(f" {label}")
+                legend_lines.append(text.markup)
+        self.query_one("#legend", Static).update("\n".join(legend_lines))
+
+    def _position_legend(self) -> None:
+        """Position the legend in the plot widget using absolute offsets."""
+
+        canvas = self.query_one("#plot", Canvas)
+        legend = self.query_one("#legend", Static)
+
+        labels = [label for label in self._labels if label is not None]
+        # markers and lines in the legend are 3 characters wide, plus a space, so 4
+        max_length = 4 + max((len(s) for s in labels), default=0)
+
+        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+            x0 = self._margin_left + 1
+        elif self._legend_location in (
+            LegendLocation.TOPRIGHT,
+            LegendLocation.BOTTOMRIGHT,
+        ):
+            x0 = self._margin_left + canvas.size.width - 1 - max_length
+            # leave room for the border
+            x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
+        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
+            y0 = self._margin_top + 1
+        else:
+            y0 = self._margin_top + canvas.size.height - 1 - len(labels)
+            # leave room for the border
+            y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
+        legend.absolute_offset = Offset(x0, y0)
 
     def refresh(
         self,
@@ -395,8 +464,7 @@ class PlotWidget(Widget, can_focus=True):
                 elif isinstance(dataset, LinePlot):
                     self._render_line_plot(dataset)
 
-            if self._show_legend:
-                self._render_legend()
+            self._position_legend()
 
             # render axis, ticks and labels
             canvas.draw_rectangle_box(
@@ -449,65 +517,6 @@ class PlotWidget(Widget, can_focus=True):
             ]
             for i in range(1, len(pixels)):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
-
-    def _render_legend(
-        self, location: LegendLocation = LegendLocation.TOPRIGHT, show_border=True
-    ) -> None:
-        """Display a legend for the datasets in the plot."""
-        canvas = self.query_one("#plot", Canvas)
-        labels = [label for label in self._labels if label is not None]
-        max_length = max((len(s) for s in labels))
-        if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
-            # I like a little padding on the left side of the block characters
-            x0 = 2
-        elif location in (LegendLocation.TOPRIGHT, LegendLocation.BOTTOMRIGHT):
-            x0 = canvas.size.width - 1 - max_length - 4
-        else:
-            raise RuntimeError(f"Unsupported legend location: {location}")
-        y0 = (
-            1
-            if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
-            else canvas.size.height - 1 - len(labels)
-        )
-
-        if show_border:
-            y0 += (
-                1
-                if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
-                else -1
-            )
-            x0 += (
-                0
-                if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT)
-                else -1
-            )
-
-            left = x0 - 1
-            right = x0 + max_length + 4
-            top = y0 - 1
-            bottom = y0 + len(labels)
-            canvas.draw_filled_quad(
-                left, top, left, bottom, right, bottom, right, top, style="black"
-            )
-            canvas.draw_rectangle_box(left, top, right, bottom)
-
-        for idx, (label, dataset) in enumerate(zip(labels, self._datasets)):
-            if label is not None:
-                if isinstance(dataset, ScatterPlot):
-                    marker = (
-                        dataset.marker
-                        if dataset.hires_mode is None
-                        else LEGEND_MARKER[dataset.hires_mode]
-                    ).center(3)
-                    style = dataset.marker_style
-                elif isinstance(dataset, LinePlot):
-                    marker = LEGEND_LINE[dataset.hires_mode]
-                    style = dataset.line_style
-                else:
-                    # unsupported dataset type
-                    continue
-                text = Content(marker).stylize(style).append(f" {label}")
-                canvas.write_text(x0, y0 + idx, text=text.markup)
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)

@@ -1,11 +1,13 @@
 import numpy as np
 from textual.app import App, ComposeResult
 
-from textual_plot import HiResMode, PlotWidget
+from textual_plot import HiResMode, LegendLocation, PlotWidget
 
 
-class MinimalApp(App[None]):
+class LegendsApp(App[None]):
     BINDINGS = [("t", "toggle_legend", "Toggle legend")]
+
+    show_legend: bool = True
 
     def compose(self) -> ComposeResult:
         yield PlotWidget()
@@ -42,11 +44,12 @@ class MinimalApp(App[None]):
             line_style="bold italic cyan",
             hires_mode=HiResMode.QUADRANT,
         )
-        plot.show_legend()
+        plot.show_legend(location=LegendLocation.TOPLEFT)
 
     def action_toggle_legend(self) -> None:
         plot = self.query_one(PlotWidget)
-        plot.show_legend(not plot._show_legend)
+        self.show_legend = not self.show_legend
+        plot.show_legend(is_visible=self.show_legend)
 
 
-MinimalApp().run()
+LegendsApp().run()
