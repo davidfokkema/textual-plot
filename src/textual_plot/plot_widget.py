@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from math import ceil, floor, log10
 from typing import Iterable
 
-from textual.content import Content
+from rich.text import Text
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -384,9 +384,13 @@ class PlotWidget(Widget, can_focus=True):
                 else:
                     # unsupported dataset type
                     continue
-                text = Content(marker).stylize(style).append(f" {label}")
+                text = Text(marker)
+                text.stylize(style)
+                text.append(f" {label}")
                 legend_lines.append(text.markup)
-        self.query_one("#legend", Static).update("\n".join(legend_lines))
+        self.query_one("#legend", Static).update(
+            Text.from_markup("\n".join(legend_lines))
+        )
 
     def _position_legend(self) -> None:
         """Position the legend in the plot widget using absolute offsets."""
