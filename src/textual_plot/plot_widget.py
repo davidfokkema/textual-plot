@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from math import ceil, floor, log10
 from typing import Iterable
 
+from textual.content import Content
+
 if sys.version_info >= (3, 11):
     from typing import Self
 else:
@@ -23,6 +25,13 @@ from textual.widget import Widget
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
+
+LEGEND_MARKER = {
+    None: "█",
+    HiResMode.BRAILLE: "⠒",
+    HiResMode.HALFBLOCK: "▀",
+    HiResMode.QUADRANT: "▀",
+}
 
 
 @dataclass
@@ -74,6 +83,7 @@ class PlotWidget(Widget, can_focus=True):
     BINDINGS = [("r", "reset_scales", "Reset scales")]
 
     _datasets: list[DataSet]
+    _labels: list[str]
 
     _user_x_min: float | None = None
     _user_x_max: float | None = None
@@ -99,6 +109,7 @@ class PlotWidget(Widget, can_focus=True):
     _y_label: str = ""
 
     _allow_pan_and_zoom: bool = True
+    _show_legend: bool = False
     _is_dragging: bool = False
     _needs_rerender: bool = False
 
@@ -128,6 +139,7 @@ class PlotWidget(Widget, can_focus=True):
             disabled=disabled,
         )
         self._datasets = []
+        self._labels = []
         self._allow_pan_and_zoom = allow_pan_and_zoom
 
     def compose(self) -> ComposeResult:
@@ -156,6 +168,7 @@ class PlotWidget(Widget, can_focus=True):
     def clear(self) -> None:
         """Clear the plot canvas."""
         self._datasets = []
+        self._labels = []
         self._needs_rerender = True
         self.refresh()
 
@@ -165,6 +178,7 @@ class PlotWidget(Widget, can_focus=True):
         y: ArrayLike,
         line_style: str = "white",
         hires_mode: HiResMode | None = None,
+        label: str | None = None,
     ) -> None:
         """Graph dataset using a line plot.
 
@@ -179,6 +193,7 @@ class PlotWidget(Widget, can_focus=True):
                 "white".
             hires_mode: A HiResMode enum or None to plot with full-height
                 blocks. Defaults to None.
+            label: A string with the label for the dataset. Defaults to None.
         """
         x, y = drop_nans_and_infs(np.array(x), np.array(y))
         self._datasets.append(
@@ -189,6 +204,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
+        self._labels.append(label)
         self._needs_rerender = True
         self.refresh()
 
@@ -199,6 +215,7 @@ class PlotWidget(Widget, can_focus=True):
         marker: str = "o",
         marker_style: str = "white",
         hires_mode: HiResMode | None = None,
+        label: str | None = None,
     ) -> None:
         """Graph dataset using a scatter plot.
 
@@ -214,6 +231,7 @@ class PlotWidget(Widget, can_focus=True):
                 "white".
             hires_mode: A HiResMode enum or None to plot with the supplied
                 marker. Defaults to None.
+            label: A string with the label for the dataset. Defaults to None.
         """
         x, y = drop_nans_and_infs(np.array(x), np.array(y))
         self._datasets.append(
@@ -225,6 +243,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
+        self._labels.append(label)
         self._needs_rerender = True
         self.refresh()
 
@@ -300,6 +319,17 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._y_ticks = ticks
 
+    def show_legend(self, is_visible: bool = True) -> None:
+        """Show or hide the legend for the datasets in the plot.
+
+        Args:
+            is_visible: A boolean indicating whether to show the legend.
+                Defaults to True.
+        """
+        self._show_legend = is_visible
+        self._needs_rerender = True
+        self.refresh()
+
     def refresh(
         self,
         *regions: Region,
@@ -348,6 +378,9 @@ class PlotWidget(Widget, can_focus=True):
                     self._render_scatter_plot(dataset)
                 elif isinstance(dataset, LinePlot):
                     self._render_line_plot(dataset)
+
+            if self._show_legend:
+                self._render_legend()
 
             # render axis, ticks and labels
             canvas.draw_rectangle_box(
@@ -400,6 +433,25 @@ class PlotWidget(Widget, can_focus=True):
             ]
             for i in range(1, len(pixels)):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
+
+    def _render_legend(self) -> None:
+        """Display a legend for the datasets in the plot."""
+        canvas = self.query_one("#plot", Canvas)
+        for idx, (label, dataset) in enumerate(zip(self._labels, self._datasets)):
+            if label is not None:
+                if isinstance(dataset, ScatterPlot):
+                    text = (
+                        Content(f" {dataset.marker} ")
+                        .stylize(dataset.marker_style)
+                        .append(f" {label}")
+                    )
+                elif isinstance(dataset, LinePlot):
+                    text = (
+                        Content(LEGEND_MARKER[dataset.hires_mode] * 3)
+                        .stylize(dataset.line_style)
+                        .append(f" {label}")
+                    )
+                canvas.write_text(2, 1 + idx, text.markup)
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
