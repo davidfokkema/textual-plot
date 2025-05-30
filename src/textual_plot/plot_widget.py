@@ -19,7 +19,7 @@ from textual import on
 from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import ComposeResult
 from textual.containers import Grid
-from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
+from textual.events import MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
 from textual.geometry import Offset, Region
 from textual.message import Message
 from textual.widget import Widget
@@ -144,6 +144,7 @@ class PlotWidget(Widget, can_focus=True):
     _y_label: str = ""
 
     _allow_pan_and_zoom: bool = True
+    _is_dragging_legend: bool = False
     _needs_rerender: bool = False
 
     def __init__(
@@ -356,7 +357,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def show_legend(
         self,
-        location: LegendLocation = LegendLocation.TOPLEFT,
+        location: LegendLocation = LegendLocation.TOPRIGHT,
         is_visible: bool = True,
     ) -> None:
         """Show or hide the legend for the datasets in the plot.
@@ -749,6 +750,21 @@ class PlotWidget(Widget, can_focus=True):
         event.stop()
         self._zoom(event, -ZOOM_FACTOR)
 
+    @on(MouseDown)
+    def start_dragging_legend(self, event: MouseDown) -> None:
+        widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
+        if event.button == 1 and widget.id == "legend":
+            self._is_dragging_legend = True
+            widget.styles.opacity = "50%"
+            event.stop()
+
+    @on(MouseUp)
+    def stop_dragging_legend(self, event: MouseUp) -> None:
+        if event.button == 1 and self._is_dragging_legend:
+            self._is_dragging_legend = False
+            self.query_one("#legend").styles.opacity = "100%"
+            event.stop()
+
     @on(MouseMove)
     def drag_with_mouse(self, event: MouseMove) -> None:
         if not self._allow_pan_and_zoom:
@@ -757,7 +773,7 @@ class PlotWidget(Widget, can_focus=True):
             # If no button is pressed, don't drag.
             return
 
-        if event.widget.id == "legend":
+        if self._is_dragging_legend:
             self._drag_legend(event)
         else:
             self._pan_plot(event)
