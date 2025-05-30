@@ -451,10 +451,11 @@ class PlotWidget(Widget, can_focus=True):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
 
     def _render_legend(
-        self, location: LegendLocation = LegendLocation.TOPRIGHT
+        self, location: LegendLocation = LegendLocation.TOPRIGHT, show_border=True
     ) -> None:
         """Display a legend for the datasets in the plot."""
         canvas = self.query_one("#plot", Canvas)
+        max_length = max((len(s) for s in self._labels if s is not None), default=0)
         if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             x0 = 2
             text_align = TextAlign.LEFT
@@ -462,7 +463,6 @@ class PlotWidget(Widget, can_focus=True):
         elif location in (LegendLocation.TOPRIGHT, LegendLocation.BOTTOMRIGHT):
             x0 = canvas.size.width - 3
             text_align = TextAlign.RIGHT
-            max_length = max((len(s) for s in self._labels if s is not None), default=0)
             labels = [
                 label.ljust(max_length) if label is not None else None
                 for label in self._labels
@@ -470,11 +470,36 @@ class PlotWidget(Widget, can_focus=True):
         else:
             raise RuntimeError(f"Unsupported legend location: {location}")
 
-        y0 = (
-            1
-            if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
-            else canvas.size.height - 1 - len(self._labels)
-        )
+        if show_border:
+            y0 = (
+                2
+                if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
+                else canvas.size.height - 2 - len(self._labels)
+            )
+
+            xbox = (
+                x0
+                if location
+                in (
+                    LegendLocation.TOPLEFT,
+                    LegendLocation.BOTTOMLEFT,
+                )
+                else x0 - max_length - 3
+            )
+            left = xbox - 1
+            right = xbox + max_length + 4
+            top = y0 - 1
+            bottom = y0 + len(labels)
+            canvas.draw_filled_quad(
+                left, top, left, bottom, right, bottom, right, top, style="black"
+            )
+            canvas.draw_rectangle_box(left, top, right, bottom)
+        else:
+            y0 = (
+                1
+                if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT)
+                else canvas.size.height - 1 - len(self._labels)
+            )
         for idx, (label, dataset) in enumerate(zip(labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
