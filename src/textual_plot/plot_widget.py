@@ -446,24 +446,19 @@ class PlotWidget(Widget, can_focus=True):
         for idx, (label, dataset) in enumerate(zip(self._labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
-                    if dataset.hires_mode is None:
-                        text = (
-                            Content(f" {dataset.marker} ")
-                            .stylize(dataset.marker_style)
-                            .append(f" {label}")
-                        )
-                    else:
-                        text = (
-                            Content(f" {LEGEND_MARKER[dataset.hires_mode]} ")
-                            .stylize(dataset.marker_style)
-                            .append(f" {label}")
-                        )
-                elif isinstance(dataset, LinePlot):
-                    text = (
-                        Content(LEGEND_LINE[dataset.hires_mode])
-                        .stylize(dataset.line_style)
-                        .append(f" {label}")
+                    marker = (
+                        dataset.marker
+                        if dataset.hires_mode is None
+                        else LEGEND_MARKER[dataset.hires_mode]
                     )
+                    style = dataset.marker_style
+                elif isinstance(dataset, LinePlot):
+                    marker = LEGEND_LINE[dataset.hires_mode]
+                    style = dataset.line_style
+                else:
+                    # unsupported dataset type
+                    continue
+                text = Content(f" {marker} ").stylize(style).append(f" {label}")
                 canvas.write_text(2, 1 + idx, text.markup)
 
     def _render_x_ticks(self) -> None:
