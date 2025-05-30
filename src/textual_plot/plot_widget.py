@@ -233,7 +233,7 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._labels.append(label)
         self._needs_rerender = True
-        self.refresh()
+        self.call_later(self.refresh)
 
     def scatter(
         self,
@@ -272,7 +272,7 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._labels.append(label)
         self._needs_rerender = True
-        self.refresh()
+        self.call_later(self.refresh)
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
         """Set the limits of the x axis.
