@@ -69,6 +69,12 @@ class ScatterPlot(DataSet):
     marker_style: str
 
 
+class Legend(Static):
+    """A legend widget for the PlotWidget."""
+
+    ALLOW_SELECT = False
+
+
 class PlotWidget(Widget, can_focus=True):
     """A plot widget for Textual apps.
 
@@ -131,12 +137,13 @@ class PlotWidget(Widget, can_focus=True):
     _margin_bottom: int = 3
     _margin_left: int = 10
     _legend_location: LegendLocation = LegendLocation.TOPRIGHT
+    _legend_x_offset: int = 0
+    _legend_y_offset: int = 0
 
     _x_label: str = ""
     _y_label: str = ""
 
     _allow_pan_and_zoom: bool = True
-    _is_dragging: bool = False
     _needs_rerender: bool = False
 
     def __init__(
@@ -174,7 +181,7 @@ class PlotWidget(Widget, can_focus=True):
             yield Canvas(1, 1, id="left-margin")
             yield Canvas(1, 1, id="plot")
             yield Canvas(1, 1, id="bottom-margin")
-        yield Static(id="legend")
+        yield Legend(id="legend")
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
@@ -185,6 +192,7 @@ class PlotWidget(Widget, can_focus=True):
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
         self._needs_rerender = True
+        self._position_legend()
         self.call_later(self.refresh)
 
     def _update_margin_sizes(self) -> None:
@@ -361,6 +369,8 @@ class PlotWidget(Widget, can_focus=True):
         if not is_visible:
             return
 
+        self._position_legend()
+
         legend_lines = []
         if isinstance(location, LegendLocation):
             self._legend_location = location
@@ -417,7 +427,9 @@ class PlotWidget(Widget, can_focus=True):
             y0 = self._margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
-        legend.absolute_offset = Offset(x0, y0)
+        legend.absolute_offset = Offset(
+            x0 + self._legend_x_offset, y0 + self._legend_y_offset
+        )
 
     def refresh(
         self,
@@ -467,8 +479,6 @@ class PlotWidget(Widget, can_focus=True):
                     self._render_scatter_plot(dataset)
                 elif isinstance(dataset, LinePlot):
                     self._render_line_plot(dataset)
-
-            self._position_legend()
 
             # render axis, ticks and labels
             canvas.draw_rectangle_box(
@@ -740,13 +750,25 @@ class PlotWidget(Widget, can_focus=True):
         self._zoom(event, -ZOOM_FACTOR)
 
     @on(MouseMove)
-    def pan_plot(self, event: MouseMove) -> None:
+    def drag_with_mouse(self, event: MouseMove) -> None:
         if not self._allow_pan_and_zoom:
             return
         if event.button == 0:
             # If no button is pressed, don't drag.
             return
 
+        if event.widget.id == "legend":
+            self._drag_legend(event)
+        else:
+            self._pan_plot(event)
+
+    def _drag_legend(self, event: MouseMove) -> None:
+        self._legend_x_offset += event.delta_x
+        self._legend_y_offset += event.delta_y
+        self._position_legend()
+        self.query_one("#legend").refresh(layout=True)
+
+    def _pan_plot(self, event: MouseMove) -> None:
         x1, y1 = self.get_coordinate_from_pixel(1, 1)
         x2, y2 = self.get_coordinate_from_pixel(2, 2)
         dx, dy = x2 - x1, y1 - y2
