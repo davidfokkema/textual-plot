@@ -26,11 +26,17 @@ from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
 
+LEGEND_LINE = {
+    None: "███",
+    HiResMode.BRAILLE: "⠒⠒⠒",
+    HiResMode.HALFBLOCK: "▀▀▀",
+    HiResMode.QUADRANT: "▀▀▀",
+}
+
 LEGEND_MARKER = {
-    None: "█",
-    HiResMode.BRAILLE: "⠒",
+    HiResMode.BRAILLE: "⠂",
     HiResMode.HALFBLOCK: "▀",
-    HiResMode.QUADRANT: "▀",
+    HiResMode.QUADRANT: "▘",
 }
 
 
@@ -440,14 +446,21 @@ class PlotWidget(Widget, can_focus=True):
         for idx, (label, dataset) in enumerate(zip(self._labels, self._datasets)):
             if label is not None:
                 if isinstance(dataset, ScatterPlot):
-                    text = (
-                        Content(f" {dataset.marker} ")
-                        .stylize(dataset.marker_style)
-                        .append(f" {label}")
-                    )
+                    if dataset.hires_mode is None:
+                        text = (
+                            Content(f" {dataset.marker} ")
+                            .stylize(dataset.marker_style)
+                            .append(f" {label}")
+                        )
+                    else:
+                        text = (
+                            Content(f" {LEGEND_MARKER[dataset.hires_mode]} ")
+                            .stylize(dataset.marker_style)
+                            .append(f" {label}")
+                        )
                 elif isinstance(dataset, LinePlot):
                     text = (
-                        Content(LEGEND_MARKER[dataset.hires_mode] * 3)
+                        Content(LEGEND_LINE[dataset.hires_mode])
                         .stylize(dataset.line_style)
                         .append(f" {label}")
                     )
