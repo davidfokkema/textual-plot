@@ -270,12 +270,15 @@ if __name__ == "__main__":
 ## List of important plot widget methods
 
 - `clear()`: clear the plot.
-- `plot(x, y, line_style, hires_mode)`: plot a dataset with a line using the specified linestyle and high-resolution mode.
-- `scatter(x, y, marker, marker_style, hires_mode)`: plot a dataset with markers using the specified marker, marker style and high-resolution mode.
+- `plot(x, y, line_style, hires_mode, label)`: plot a dataset with a line using the specified linestyle and high-resolution mode.
+- `scatter(x, y, marker, marker_style, hires_mode, label)`: plot a dataset with markers using the specified marker, marker style and high-resolution mode.
 - `set_xlimits(xmin, xmax)`: set the x-axis limits. `None` means autoscale.
 - `set_ylimits(xmin, xmax)`: set the y-axis limits. `None` means autoscale.
+- `set_xticks(ticks)`: manually specify x-axis tick locations.
+- `set_yticks(ticks)`: manually specify y-axis tick locations.
 - `set_xlabel(label)`: set the x-axis label.
 - `set_ylabel(label)`: set the y-axis label.
+- `show_legend(location, is_visible)`: show or hide the plot legend.
 
 Various other methods exist, mostly for coordinate transformations and handling UI events to zoom and pan the plot.
 
