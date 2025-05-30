@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import enum
 import sys
 from dataclasses import dataclass
 from math import ceil, floor, log10
 from typing import Iterable
+
+from rich.text import Text
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -17,12 +20,35 @@ from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
-from textual.geometry import Region
+from textual.geometry import Offset, Region
 from textual.message import Message
 from textual.widget import Widget
+from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
 ZOOM_FACTOR = 0.05
+
+LEGEND_LINE = {
+    None: "███",
+    HiResMode.BRAILLE: "⠒⠒⠒",
+    HiResMode.HALFBLOCK: "▀▀▀",
+    HiResMode.QUADRANT: "▀▀▀",
+}
+
+LEGEND_MARKER = {
+    HiResMode.BRAILLE: "⠂",
+    HiResMode.HALFBLOCK: "▀",
+    HiResMode.QUADRANT: "▘",
+}
+
+
+class LegendLocation(enum.Enum):
+    """An enum to specify the location of the legend in the plot widget."""
+
+    TOPLEFT = enum.auto()
+    TOPRIGHT = enum.auto()
+    BOTTOMLEFT = enum.auto()
+    BOTTOMRIGHT = enum.auto()
 
 
 @dataclass
@@ -61,12 +87,21 @@ class PlotWidget(Widget, can_focus=True):
 
     DEFAULT_CSS = """
         PlotWidget {
+            layers: plot legend;
+
             Grid {
+                layer: plot;
                 grid-size: 2 3;
 
                 #top-margin, #bottom-margin {
                     column-span: 2;
                 }
+            }
+
+            #legend {
+              layer: legend;
+              width: auto;
+              border: solid white;
             }
         }
     """
@@ -74,6 +109,7 @@ class PlotWidget(Widget, can_focus=True):
     BINDINGS = [("r", "reset_scales", "Reset scales")]
 
     _datasets: list[DataSet]
+    _labels: list[str]
 
     _user_x_min: float | None = None
     _user_x_max: float | None = None
@@ -94,6 +130,7 @@ class PlotWidget(Widget, can_focus=True):
     _margin_top: int = 2
     _margin_bottom: int = 3
     _margin_left: int = 10
+    _legend_location: LegendLocation = LegendLocation.TOPRIGHT
 
     _x_label: str = ""
     _y_label: str = ""
@@ -128,6 +165,7 @@ class PlotWidget(Widget, can_focus=True):
             disabled=disabled,
         )
         self._datasets = []
+        self._labels = []
         self._allow_pan_and_zoom = allow_pan_and_zoom
 
     def compose(self) -> ComposeResult:
@@ -136,6 +174,7 @@ class PlotWidget(Widget, can_focus=True):
             yield Canvas(1, 1, id="left-margin")
             yield Canvas(1, 1, id="plot")
             yield Canvas(1, 1, id="bottom-margin")
+        yield Static(id="legend")
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
@@ -156,6 +195,7 @@ class PlotWidget(Widget, can_focus=True):
     def clear(self) -> None:
         """Clear the plot canvas."""
         self._datasets = []
+        self._labels = []
         self._needs_rerender = True
         self.refresh()
 
@@ -165,6 +205,7 @@ class PlotWidget(Widget, can_focus=True):
         y: ArrayLike,
         line_style: str = "white",
         hires_mode: HiResMode | None = None,
+        label: str | None = None,
     ) -> None:
         """Graph dataset using a line plot.
 
@@ -179,6 +220,7 @@ class PlotWidget(Widget, can_focus=True):
                 "white".
             hires_mode: A HiResMode enum or None to plot with full-height
                 blocks. Defaults to None.
+            label: A string with the label for the dataset. Defaults to None.
         """
         x, y = drop_nans_and_infs(np.array(x), np.array(y))
         self._datasets.append(
@@ -189,8 +231,9 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
+        self._labels.append(label)
         self._needs_rerender = True
-        self.refresh()
+        self.call_later(self.refresh)
 
     def scatter(
         self,
@@ -199,6 +242,7 @@ class PlotWidget(Widget, can_focus=True):
         marker: str = "o",
         marker_style: str = "white",
         hires_mode: HiResMode | None = None,
+        label: str | None = None,
     ) -> None:
         """Graph dataset using a scatter plot.
 
@@ -214,6 +258,7 @@ class PlotWidget(Widget, can_focus=True):
                 "white".
             hires_mode: A HiResMode enum or None to plot with the supplied
                 marker. Defaults to None.
+            label: A string with the label for the dataset. Defaults to None.
         """
         x, y = drop_nans_and_infs(np.array(x), np.array(y))
         self._datasets.append(
@@ -225,8 +270,9 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
+        self._labels.append(label)
         self._needs_rerender = True
-        self.refresh()
+        self.call_later(self.refresh)
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
         """Set the limits of the x axis.
@@ -300,6 +346,79 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._y_ticks = ticks
 
+    def show_legend(
+        self,
+        location: LegendLocation = LegendLocation.TOPLEFT,
+        is_visible: bool = True,
+    ) -> None:
+        """Show or hide the legend for the datasets in the plot.
+
+        Args:
+            is_visible: A boolean indicating whether to show the legend.
+                Defaults to True.
+        """
+        self.query_one("#legend", Static).display = is_visible
+        if not is_visible:
+            return
+
+        legend_lines = []
+        if isinstance(location, LegendLocation):
+            self._legend_location = location
+        else:
+            raise TypeError(
+                f"Expected LegendLocation, got {type(location).__name__} instead."
+            )
+
+        for label, dataset in zip(self._labels, self._datasets):
+            if label is not None:
+                if isinstance(dataset, ScatterPlot):
+                    marker = (
+                        dataset.marker
+                        if dataset.hires_mode is None
+                        else LEGEND_MARKER[dataset.hires_mode]
+                    ).center(3)
+                    style = dataset.marker_style
+                elif isinstance(dataset, LinePlot):
+                    marker = LEGEND_LINE[dataset.hires_mode]
+                    style = dataset.line_style
+                else:
+                    # unsupported dataset type
+                    continue
+                text = Text(marker)
+                text.stylize(style)
+                text.append(f" {label}")
+                legend_lines.append(text.markup)
+        self.query_one("#legend", Static).update(
+            Text.from_markup("\n".join(legend_lines))
+        )
+
+    def _position_legend(self) -> None:
+        """Position the legend in the plot widget using absolute offsets."""
+
+        canvas = self.query_one("#plot", Canvas)
+        legend = self.query_one("#legend", Static)
+
+        labels = [label for label in self._labels if label is not None]
+        # markers and lines in the legend are 3 characters wide, plus a space, so 4
+        max_length = 4 + max((len(s) for s in labels), default=0)
+
+        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+            x0 = self._margin_left + 1
+        elif self._legend_location in (
+            LegendLocation.TOPRIGHT,
+            LegendLocation.BOTTOMRIGHT,
+        ):
+            x0 = self._margin_left + canvas.size.width - 1 - max_length
+            # leave room for the border
+            x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
+        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
+            y0 = self._margin_top + 1
+        else:
+            y0 = self._margin_top + canvas.size.height - 1 - len(labels)
+            # leave room for the border
+            y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
+        legend.absolute_offset = Offset(x0, y0)
+
     def refresh(
         self,
         *regions: Region,
@@ -348,6 +467,8 @@ class PlotWidget(Widget, can_focus=True):
                     self._render_scatter_plot(dataset)
                 elif isinstance(dataset, LinePlot):
                     self._render_line_plot(dataset)
+
+            self._position_legend()
 
             # render axis, ticks and labels
             canvas.draw_rectangle_box(
