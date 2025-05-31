@@ -137,8 +137,7 @@ class PlotWidget(Widget, can_focus=True):
     _margin_bottom: int = 3
     _margin_left: int = 10
     _legend_location: LegendLocation = LegendLocation.TOPRIGHT
-    _legend_x_offset: int = 0
-    _legend_y_offset: int = 0
+    _legend_relative_offset: Offset = Offset(0, 0)
 
     _x_label: str = ""
     _y_label: str = ""
@@ -428,9 +427,7 @@ class PlotWidget(Widget, can_focus=True):
             y0 = self._margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
-        legend.absolute_offset = Offset(
-            x0 + self._legend_x_offset, y0 + self._legend_y_offset
-        )
+        legend.offset = Offset(x0, y0) + self._legend_relative_offset
 
     def refresh(
         self,
@@ -779,8 +776,7 @@ class PlotWidget(Widget, can_focus=True):
             self._pan_plot(event)
 
     def _drag_legend(self, event: MouseMove) -> None:
-        self._legend_x_offset += event.delta_x
-        self._legend_y_offset += event.delta_y
+        self._legend_relative_offset += event.delta
         self._position_legend()
         self.query_one("#legend").refresh(layout=True)
 
