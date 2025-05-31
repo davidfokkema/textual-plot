@@ -108,6 +108,10 @@ class PlotWidget(Widget, can_focus=True):
               layer: legend;
               width: auto;
               border: solid white;
+
+              &.dragged {
+                border: heavy yellow;
+              }
             }
         }
     """
@@ -752,14 +756,14 @@ class PlotWidget(Widget, can_focus=True):
         widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
         if event.button == 1 and widget.id == "legend":
             self._is_dragging_legend = True
-            widget.styles.opacity = "50%"
+            widget.add_class("dragged")
             event.stop()
 
     @on(MouseUp)
     def stop_dragging_legend(self, event: MouseUp) -> None:
         if event.button == 1 and self._is_dragging_legend:
             self._is_dragging_legend = False
-            self.query_one("#legend").styles.opacity = "100%"
+            self.query_one("#legend").remove_class("dragged")
             event.stop()
 
     @on(MouseMove)
