@@ -141,21 +141,21 @@ class PlotWidget(Widget, can_focus=True):
 
     def __init__(
         self,
-        allow_pan_and_zoom: bool = True,
         name: str | None = None,
         id: str | None = None,
         classes: str | None = None,
         *,
+        allow_pan_and_zoom: bool = True,
         disabled: bool = False,
     ) -> None:
         """Initializes the plot widget with basic widget parameters.
 
         Params:
-            allow_pan_and_zoom: Whether to allow panning and zooming the plot.
-                Defaults to True.
             name: The name of the widget.
             id: The ID of the widget in the DOM.
             classes: The CSS classes for the widget.
+            allow_pan_and_zoom: Whether to allow panning and zooming the plot.
+                Defaults to True.
             disabled: Whether the widget is disabled or not.
         """
         super().__init__(
