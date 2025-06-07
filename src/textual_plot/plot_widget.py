@@ -146,6 +146,7 @@ class PlotWidget(Widget, can_focus=True):
         classes: str | None = None,
         *,
         allow_pan_and_zoom: bool = True,
+        invert_mouse_wheel: bool = False,
         disabled: bool = False,
     ) -> None:
         """Initializes the plot widget with basic widget parameters.
@@ -156,6 +157,8 @@ class PlotWidget(Widget, can_focus=True):
             classes: The CSS classes for the widget.
             allow_pan_and_zoom: Whether to allow panning and zooming the plot.
                 Defaults to True.
+            invert_mouse_wheel: When set to True the zooming direction is inverted
+                when scrolling in and out of the widget. Defaults to False.
             disabled: Whether the widget is disabled or not.
         """
         super().__init__(
@@ -167,6 +170,7 @@ class PlotWidget(Widget, can_focus=True):
         self._datasets = []
         self._labels = []
         self._allow_pan_and_zoom = allow_pan_and_zoom
+        self.invert_mouse_wheel = invert_mouse_wheel
 
     def compose(self) -> ComposeResult:
         with Grid():
@@ -704,6 +708,10 @@ class PlotWidget(Widget, can_focus=True):
     def _zoom(self, event: MouseScrollDown | MouseScrollUp, factor: float) -> None:
         if not self._allow_pan_and_zoom:
             return
+
+        if self.invert_mouse_wheel:
+            factor *= -1
+
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
