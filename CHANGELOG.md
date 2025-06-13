@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add a plot legend, which you can target using CSS (#9).
+- Added an `invert_mouse_wheel` parameter for switching zoom direction (#13).
+
+### Changed
+
+- Converted `allow_pan_and_zoom` to a keyword only argument (#13).
 
 ## [0.6.1] - 2025-05-24
 
