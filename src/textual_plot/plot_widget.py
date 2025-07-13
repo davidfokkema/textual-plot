@@ -543,12 +543,12 @@ class PlotWidget(Widget, can_focus=True):
         canvas = self.query_one("#plot", Canvas)
         assert canvas.scale_rectangle is not None
         if dataset.hires_mode:
-            pixels = [
+            hires_pixels = [
                 self.get_hires_pixel_from_coordinate(xi, yi)
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
             canvas.set_hires_pixels(
-                pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
+                hires_pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
             )
         else:
             pixels = [
@@ -565,11 +565,14 @@ class PlotWidget(Widget, can_focus=True):
         assert canvas.scale_rectangle is not None
 
         if dataset.hires_mode:
-            pixels = [
+            hires_pixels = [
                 self.get_hires_pixel_from_coordinate(xi, yi)
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
-            coordinates = [(*pixels[i - 1], *pixels[i]) for i in range(1, len(pixels))]
+            coordinates = [
+                (*hires_pixels[i - 1], *hires_pixels[i])
+                for i in range(1, len(hires_pixels))
+            ]
             canvas.draw_hires_lines(
                 coordinates, style=dataset.line_style, hires_mode=dataset.hires_mode
             )
