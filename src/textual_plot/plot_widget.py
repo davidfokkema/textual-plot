@@ -407,14 +407,37 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _position_legend(self) -> None:
-        """Position the legend in the plot widget using absolute offsets."""
-        x0, y0 = self._get_legend_origin_coordinates(self._legend_location)
-        legend = self.query_one("#legend", Static)
-        legend.offset = Offset(x0, y0) + self._legend_relative_offset
+        """Position the legend in the plot widget using absolute offsets.
 
-    def _get_legend_origin_coordinates(
-        self, location: LegendLocation
-    ) -> tuple[int, int]:
+        The position of the legend is calculated by checking the legend origin
+        location (top left, bottom right, etc.) and an offset resulting from the
+        user dragging the legend to another location. Then the nearest corner of
+        the plot widget is determined and the legend is anchored to that corner
+        and a new relative offset is determined. The end result is that the user
+        can place the legend anywhere in the plot, but when the user resizes the
+        plot the legend will stay fixed relative to the nearest corner.
+        """
+
+        position = (
+            self._get_legend_origin_coordinates(self._legend_location)
+            + self._legend_relative_offset
+        )
+        distances = {
+            location: self._get_legend_origin_coordinates(location).get_distance_to(
+                position
+            )
+            for location in LegendLocation
+        }
+        nearest_location = min(distances, key=distances.get)
+        self._legend_location = nearest_location
+        self._legend_relative_offset = position - self._get_legend_origin_coordinates(
+            nearest_location
+        )
+
+        legend = self.query_one("#legend", Static)
+        legend.offset = position
+
+    def _get_legend_origin_coordinates(self, location: LegendLocation) -> Offset:
         """Calculate the (x, y) origin coordinates for positioning the legend.
 
         The coordinates are determined based on the legend's location (top-left,
@@ -449,7 +472,7 @@ class PlotWidget(Widget, can_focus=True):
             y0 = self._margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
-        return x0, y0
+        return Offset(x0, y0)
 
     def refresh(
         self,
