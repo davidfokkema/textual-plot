@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add a plot legend, which you can target using CSS (#9).
 
+### Fixed
+
+- Lots and lots of type annotations.
+
 ## [0.6.1] - 2025-05-24
 
 ### Fixed
