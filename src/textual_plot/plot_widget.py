@@ -4,7 +4,7 @@ import enum
 import sys
 from dataclasses import dataclass
 from math import ceil, floor, log10
-from typing import Iterable
+from typing import Sequence, TypeAlias
 
 from rich.text import Text
 
@@ -19,12 +19,18 @@ from textual import on
 from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import ComposeResult
 from textual.containers import Grid
-from textual.events import MouseMove, MouseScrollDown, MouseScrollUp
+from textual.events import MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
 from textual.geometry import Offset, Region
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
+
+__all__ = ["HiResMode", "LegendLocation", "PlotWidget"]
+
+FloatScalar: TypeAlias = float | np.floating
+FloatArray: TypeAlias = NDArray[np.floating]
+
 
 ZOOM_FACTOR = 0.05
 
@@ -53,8 +59,8 @@ class LegendLocation(enum.Enum):
 
 @dataclass
 class DataSet:
-    x: NDArray[np.floating]
-    y: NDArray[np.floating]
+    x: FloatArray
+    y: FloatArray
     hires_mode: HiResMode | None
 
 
@@ -65,8 +71,14 @@ class LinePlot(DataSet):
 
 @dataclass
 class ScatterPlot(DataSet):
-    marker: str | None
+    marker: str
     marker_style: str
+
+
+class Legend(Static):
+    """A legend widget for the PlotWidget."""
+
+    ALLOW_SELECT = False
 
 
 class PlotWidget(Widget, can_focus=True):
@@ -102,6 +114,10 @@ class PlotWidget(Widget, can_focus=True):
               layer: legend;
               width: auto;
               border: solid white;
+
+              &.dragged {
+                border: heavy yellow;
+              }
             }
         }
     """
@@ -124,19 +140,20 @@ class PlotWidget(Widget, can_focus=True):
     _y_min: float = 0.0
     _y_max: float = 1.0
 
-    _x_ticks: Iterable[float] | None = None
-    _y_ticks: Iterable[float] | None = None
+    _x_ticks: Sequence[float] | None = None
+    _y_ticks: Sequence[float] | None = None
 
     _margin_top: int = 2
     _margin_bottom: int = 3
     _margin_left: int = 10
     _legend_location: LegendLocation = LegendLocation.TOPRIGHT
+    _legend_relative_offset: Offset = Offset(0, 0)
 
     _x_label: str = ""
     _y_label: str = ""
 
     _allow_pan_and_zoom: bool = True
-    _is_dragging: bool = False
+    _is_dragging_legend: bool = False
     _needs_rerender: bool = False
 
     def __init__(
@@ -178,7 +195,7 @@ class PlotWidget(Widget, can_focus=True):
             yield Canvas(1, 1, id="left-margin")
             yield Canvas(1, 1, id="plot")
             yield Canvas(1, 1, id="bottom-margin")
-        yield Static(id="legend")
+        yield Legend(id="legend")
 
     def on_mount(self) -> None:
         self._update_margin_sizes()
@@ -189,6 +206,7 @@ class PlotWidget(Widget, can_focus=True):
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         event.canvas.reset(size=event.size)
         self._needs_rerender = True
+        self._position_legend()
         self.call_later(self.refresh)
 
     def _update_margin_sizes(self) -> None:
@@ -235,7 +253,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
-        self._labels.append(label)
+        self._labels.append(label or "")
         self._needs_rerender = True
         self.call_later(self.refresh)
 
@@ -274,7 +292,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
-        self._labels.append(label)
+        self._labels.append(label or "")
         self._needs_rerender = True
         self.call_later(self.refresh)
 
@@ -330,7 +348,7 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._y_label = label
 
-    def set_xticks(self, ticks: Iterable[float] | None = None) -> None:
+    def set_xticks(self, ticks: Sequence[float] | None = None) -> None:
         """Set the x axis ticks.
 
         Use None for autoscaling, an empty list to hide the ticks.
@@ -340,7 +358,7 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._x_ticks = ticks
 
-    def set_yticks(self, ticks: Iterable[float] | None = None) -> None:
+    def set_yticks(self, ticks: Sequence[float] | None = None) -> None:
         """Set the y axis ticks.
 
         Use None for autoscaling, an empty list to hide the ticks.
@@ -352,7 +370,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def show_legend(
         self,
-        location: LegendLocation = LegendLocation.TOPLEFT,
+        location: LegendLocation = LegendLocation.TOPRIGHT,
         is_visible: bool = True,
     ) -> None:
         """Show or hide the legend for the datasets in the plot.
@@ -364,6 +382,8 @@ class PlotWidget(Widget, can_focus=True):
         self.query_one("#legend", Static).display = is_visible
         if not is_visible:
             return
+
+        self._position_legend()
 
         legend_lines = []
         if isinstance(location, LegendLocation):
@@ -397,8 +417,50 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _position_legend(self) -> None:
-        """Position the legend in the plot widget using absolute offsets."""
+        """Position the legend in the plot widget using absolute offsets.
 
+        The position of the legend is calculated by checking the legend origin
+        location (top left, bottom right, etc.) and an offset resulting from the
+        user dragging the legend to another location. Then the nearest corner of
+        the plot widget is determined and the legend is anchored to that corner
+        and a new relative offset is determined. The end result is that the user
+        can place the legend anywhere in the plot, but when the user resizes the
+        plot the legend will stay fixed relative to the nearest corner.
+        """
+
+        position = (
+            self._get_legend_origin_coordinates(self._legend_location)
+            + self._legend_relative_offset
+        )
+        distances: dict[LegendLocation, float] = {
+            location: self._get_legend_origin_coordinates(location).get_distance_to(
+                position
+            )
+            for location in LegendLocation
+        }
+        print(type(distances))
+        nearest_location = min(distances, key=lambda loc: distances[loc])
+        self._legend_location = nearest_location
+        self._legend_relative_offset = position - self._get_legend_origin_coordinates(
+            nearest_location
+        )
+
+        legend = self.query_one("#legend", Static)
+        legend.offset = position
+
+    def _get_legend_origin_coordinates(self, location: LegendLocation) -> Offset:
+        """Calculate the (x, y) origin coordinates for positioning the legend.
+
+        The coordinates are determined based on the legend's location (top-left,
+        top-right, bottom-left, bottom-right), the size of the data rectangle,
+        the length of the legend labels, and the margins and border spacing.
+        User adjustments (dragging the legend to a different position) are _not_
+        taken into account, but are applied later.
+
+        Returns:
+            A (x, y) tuple of ints representing the coordinates of the top-left
+            corner of the legend within the plot widget.
+        """
         canvas = self.query_one("#plot", Canvas)
         legend = self.query_one("#legend", Static)
 
@@ -406,22 +468,22 @@ class PlotWidget(Widget, can_focus=True):
         # markers and lines in the legend are 3 characters wide, plus a space, so 4
         max_length = 4 + max((len(s) for s in labels), default=0)
 
-        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+        if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             x0 = self._margin_left + 1
-        elif self._legend_location in (
-            LegendLocation.TOPRIGHT,
-            LegendLocation.BOTTOMRIGHT,
-        ):
+        else:
+            # LegendLocation is TOPRIGHT or BOTTOMRIGHT
             x0 = self._margin_left + canvas.size.width - 1 - max_length
             # leave room for the border
             x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
-        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
+
+        if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
             y0 = self._margin_top + 1
         else:
+            # LegendLocation is TOPRIGHT or BOTTOMRIGHT
             y0 = self._margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
-        legend.absolute_offset = Offset(x0, y0)
+        return Offset(x0, y0)
 
     def refresh(
         self,
@@ -450,13 +512,13 @@ class PlotWidget(Widget, can_focus=True):
                 xs = [dataset.x for dataset in self._datasets]
                 ys = [dataset.y for dataset in self._datasets]
                 if self._auto_x_min:
-                    self._x_min = min(np.min(x) for x in xs)
+                    self._x_min = float(np.min([np.min(x) for x in xs]))
                 if self._auto_x_max:
-                    self._x_max = max(np.max(x) for x in xs)
+                    self._x_max = float(np.max([np.max(x) for x in xs]))
                 if self._auto_y_min:
-                    self._y_min = min(np.min(y) for y in ys)
+                    self._y_min = float(np.min([np.min(y) for y in ys]))
                 if self._auto_y_max:
-                    self._y_max = max(np.max(y) for y in ys)
+                    self._y_max = float(np.max([np.max(y) for y in ys]))
 
                 if self._x_min == self._x_max:
                     self._x_min -= 1e-6
@@ -472,8 +534,6 @@ class PlotWidget(Widget, can_focus=True):
                 elif isinstance(dataset, LinePlot):
                     self._render_line_plot(dataset)
 
-            self._position_legend()
-
             # render axis, ticks and labels
             canvas.draw_rectangle_box(
                 0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
@@ -487,12 +547,12 @@ class PlotWidget(Widget, can_focus=True):
         canvas = self.query_one("#plot", Canvas)
         assert canvas.scale_rectangle is not None
         if dataset.hires_mode:
-            pixels = [
+            hires_pixels = [
                 self.get_hires_pixel_from_coordinate(xi, yi)
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
             canvas.set_hires_pixels(
-                pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
+                hires_pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
             )
         else:
             pixels = [
@@ -500,7 +560,6 @@ class PlotWidget(Widget, can_focus=True):
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
             for pixel in pixels:
-                assert dataset.marker is not None
                 canvas.set_pixel(
                     *pixel, char=dataset.marker, style=dataset.marker_style
                 )
@@ -510,11 +569,14 @@ class PlotWidget(Widget, can_focus=True):
         assert canvas.scale_rectangle is not None
 
         if dataset.hires_mode:
-            pixels = [
+            hires_pixels = [
                 self.get_hires_pixel_from_coordinate(xi, yi)
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
-            coordinates = [(*pixels[i - 1], *pixels[i]) for i in range(1, len(pixels))]
+            coordinates = [
+                (*hires_pixels[i - 1], *hires_pixels[i])
+                for i in range(1, len(hires_pixels))
+            ]
             canvas.draw_hires_lines(
                 coordinates, style=dataset.line_style, hires_mode=dataset.hires_mode
             )
@@ -532,6 +594,7 @@ class PlotWidget(Widget, can_focus=True):
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
+        x_ticks: Sequence[float]
         if self._x_ticks is None:
             x_ticks, x_labels = self.get_ticks_between(self._x_min, self._x_max)
         else:
@@ -562,6 +625,7 @@ class PlotWidget(Widget, can_focus=True):
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
+        y_ticks: Sequence[float]
         if self._y_ticks is None:
             y_ticks, y_labels = self.get_ticks_between(self._y_min, self._y_max)
         else:
@@ -627,7 +691,7 @@ class PlotWidget(Widget, can_focus=True):
         return ticks, tick_labels
 
     def get_labels_for_ticks(
-        self, ticks: list[float], decimals: int | None = None
+        self, ticks: Sequence[float], decimals: int | None = None
     ) -> list[str]:
         """Generate formatted labels for given tick values.
 
@@ -660,7 +724,7 @@ class PlotWidget(Widget, can_focus=True):
         return BOX_CHARACTERS[new_quad]
 
     def get_pixel_from_coordinate(
-        self, x: float | np.floating, y: float | np.floating
+        self, x: FloatScalar, y: FloatScalar
     ) -> tuple[int, int]:
         assert (
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
@@ -676,8 +740,8 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def get_hires_pixel_from_coordinate(
-        self, x: float | np.floating, y: float | np.floating
-    ) -> tuple[float | np.floating, float | np.floating]:
+        self, x: FloatScalar, y: FloatScalar
+    ) -> tuple[FloatScalar, FloatScalar]:
         assert (
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
         ) is not None
@@ -747,14 +811,40 @@ class PlotWidget(Widget, can_focus=True):
         event.stop()
         self._zoom(event, -ZOOM_FACTOR)
 
+    @on(MouseDown)
+    def start_dragging_legend(self, event: MouseDown) -> None:
+        widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
+        if event.button == 1 and widget.id == "legend":
+            self._is_dragging_legend = True
+            widget.add_class("dragged")
+            event.stop()
+
+    @on(MouseUp)
+    def stop_dragging_legend(self, event: MouseUp) -> None:
+        if event.button == 1 and self._is_dragging_legend:
+            self._is_dragging_legend = False
+            self.query_one("#legend").remove_class("dragged")
+            event.stop()
+
     @on(MouseMove)
-    def pan_plot(self, event: MouseMove) -> None:
+    def drag_with_mouse(self, event: MouseMove) -> None:
         if not self._allow_pan_and_zoom:
             return
         if event.button == 0:
             # If no button is pressed, don't drag.
             return
 
+        if self._is_dragging_legend:
+            self._drag_legend(event)
+        else:
+            self._pan_plot(event)
+
+    def _drag_legend(self, event: MouseMove) -> None:
+        self._legend_relative_offset += event.delta
+        self._position_legend()
+        self.query_one("#legend").refresh(layout=True)
+
+    def _pan_plot(self, event: MouseMove) -> None:
         x1, y1 = self.get_coordinate_from_pixel(1, 1)
         x2, y2 = self.get_coordinate_from_pixel(2, 2)
         dx, dy = x2 - x1, y1 - y2
@@ -786,8 +876,8 @@ class PlotWidget(Widget, can_focus=True):
 
 
 def map_coordinate_to_pixel(
-    x: float | np.floating,
-    y: float | np.floating,
+    x: FloatScalar,
+    y: FloatScalar,
     xmin: float,
     xmax: float,
     ymin: float,
@@ -801,14 +891,14 @@ def map_coordinate_to_pixel(
 
 
 def map_coordinate_to_hires_pixel(
-    x: float | np.floating,
-    y: float | np.floating,
+    x: FloatScalar,
+    y: FloatScalar,
     xmin: float,
     xmax: float,
     ymin: float,
     ymax: float,
     region: Region,
-) -> tuple[float | np.floating, float | np.floating]:
+) -> tuple[FloatScalar, FloatScalar]:
     x = linear_mapper(x, xmin, xmax, region.x, region.right)
     # positive y direction is reversed
     y = linear_mapper(y, ymin, ymax, region.bottom, region.y)
@@ -831,16 +921,16 @@ def map_pixel_to_coordinate(
 
 
 def linear_mapper(
-    x: float | np.floating | int,
+    x: FloatScalar | int,
     a: float | int,
     b: float | int,
     a_prime: float | int,
     b_prime: float | int,
-) -> float | np.floating:
+) -> FloatScalar:
     return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
 
-def drop_nans_and_infs(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def drop_nans_and_infs(x: FloatArray, y: FloatArray) -> tuple[FloatArray, FloatArray]:
     """Drop NaNs and Infs from x and y arrays.
 
     Args:
