@@ -4,7 +4,7 @@ import enum
 import sys
 from dataclasses import dataclass
 from math import ceil, floor, log10
-from typing import Iterable
+from typing import Sequence, TypeAlias
 
 from rich.text import Text
 
@@ -25,6 +25,12 @@ from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
+
+__all__ = ["HiResMode", "LegendLocation", "PlotWidget"]
+
+FloatScalar: TypeAlias = float | np.floating
+FloatArray: TypeAlias = NDArray[np.floating]
+
 
 ZOOM_FACTOR = 0.05
 
@@ -53,8 +59,8 @@ class LegendLocation(enum.Enum):
 
 @dataclass
 class DataSet:
-    x: NDArray[np.floating]
-    y: NDArray[np.floating]
+    x: FloatArray
+    y: FloatArray
     hires_mode: HiResMode | None
 
 
@@ -65,7 +71,7 @@ class LinePlot(DataSet):
 
 @dataclass
 class ScatterPlot(DataSet):
-    marker: str | None
+    marker: str
     marker_style: str
 
 
@@ -134,8 +140,8 @@ class PlotWidget(Widget, can_focus=True):
     _y_min: float = 0.0
     _y_max: float = 1.0
 
-    _x_ticks: Iterable[float] | None = None
-    _y_ticks: Iterable[float] | None = None
+    _x_ticks: Sequence[float] | None = None
+    _y_ticks: Sequence[float] | None = None
 
     _margin_top: int = 2
     _margin_bottom: int = 3
@@ -243,7 +249,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
-        self._labels.append(label)
+        self._labels.append(label or "")
         self._needs_rerender = True
         self.call_later(self.refresh)
 
@@ -282,7 +288,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
-        self._labels.append(label)
+        self._labels.append(label or "")
         self._needs_rerender = True
         self.call_later(self.refresh)
 
@@ -338,7 +344,7 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._y_label = label
 
-    def set_xticks(self, ticks: Iterable[float] | None = None) -> None:
+    def set_xticks(self, ticks: Sequence[float] | None = None) -> None:
         """Set the x axis ticks.
 
         Use None for autoscaling, an empty list to hide the ticks.
@@ -348,7 +354,7 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._x_ticks = ticks
 
-    def set_yticks(self, ticks: Iterable[float] | None = None) -> None:
+    def set_yticks(self, ticks: Sequence[float] | None = None) -> None:
         """Set the y axis ticks.
 
         Use None for autoscaling, an empty list to hide the ticks.
@@ -422,13 +428,14 @@ class PlotWidget(Widget, can_focus=True):
             self._get_legend_origin_coordinates(self._legend_location)
             + self._legend_relative_offset
         )
-        distances = {
+        distances: dict[LegendLocation, float] = {
             location: self._get_legend_origin_coordinates(location).get_distance_to(
                 position
             )
             for location in LegendLocation
         }
-        nearest_location = min(distances, key=distances.get)
+        print(type(distances))
+        nearest_location = min(distances, key=lambda loc: distances[loc])
         self._legend_location = nearest_location
         self._legend_relative_offset = position - self._get_legend_origin_coordinates(
             nearest_location
@@ -501,13 +508,13 @@ class PlotWidget(Widget, can_focus=True):
                 xs = [dataset.x for dataset in self._datasets]
                 ys = [dataset.y for dataset in self._datasets]
                 if self._auto_x_min:
-                    self._x_min = min(np.min(x) for x in xs)
+                    self._x_min = float(np.min([np.min(x) for x in xs]))
                 if self._auto_x_max:
-                    self._x_max = max(np.max(x) for x in xs)
+                    self._x_max = float(np.max([np.max(x) for x in xs]))
                 if self._auto_y_min:
-                    self._y_min = min(np.min(y) for y in ys)
+                    self._y_min = float(np.min([np.min(y) for y in ys]))
                 if self._auto_y_max:
-                    self._y_max = max(np.max(y) for y in ys)
+                    self._y_max = float(np.max([np.max(y) for y in ys]))
 
                 if self._x_min == self._x_max:
                     self._x_min -= 1e-6
@@ -549,7 +556,6 @@ class PlotWidget(Widget, can_focus=True):
                 for xi, yi in zip(dataset.x, dataset.y)
             ]
             for pixel in pixels:
-                assert dataset.marker is not None
                 canvas.set_pixel(
                     *pixel, char=dataset.marker, style=dataset.marker_style
                 )
@@ -581,6 +587,7 @@ class PlotWidget(Widget, can_focus=True):
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
+        x_ticks: Sequence[float]
         if self._x_ticks is None:
             x_ticks, x_labels = self.get_ticks_between(self._x_min, self._x_max)
         else:
@@ -611,6 +618,7 @@ class PlotWidget(Widget, can_focus=True):
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
+        y_ticks: Sequence[float]
         if self._y_ticks is None:
             y_ticks, y_labels = self.get_ticks_between(self._y_min, self._y_max)
         else:
@@ -676,7 +684,7 @@ class PlotWidget(Widget, can_focus=True):
         return ticks, tick_labels
 
     def get_labels_for_ticks(
-        self, ticks: list[float], decimals: int | None = None
+        self, ticks: Sequence[float], decimals: int | None = None
     ) -> list[str]:
         """Generate formatted labels for given tick values.
 
@@ -709,7 +717,7 @@ class PlotWidget(Widget, can_focus=True):
         return BOX_CHARACTERS[new_quad]
 
     def get_pixel_from_coordinate(
-        self, x: float | np.floating, y: float | np.floating
+        self, x: FloatScalar, y: FloatScalar
     ) -> tuple[int, int]:
         assert (
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
@@ -725,8 +733,8 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def get_hires_pixel_from_coordinate(
-        self, x: float | np.floating, y: float | np.floating
-    ) -> tuple[float | np.floating, float | np.floating]:
+        self, x: FloatScalar, y: FloatScalar
+    ) -> tuple[FloatScalar, FloatScalar]:
         assert (
             scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
         ) is not None
@@ -857,8 +865,8 @@ class PlotWidget(Widget, can_focus=True):
 
 
 def map_coordinate_to_pixel(
-    x: float | np.floating,
-    y: float | np.floating,
+    x: FloatScalar,
+    y: FloatScalar,
     xmin: float,
     xmax: float,
     ymin: float,
@@ -872,14 +880,14 @@ def map_coordinate_to_pixel(
 
 
 def map_coordinate_to_hires_pixel(
-    x: float | np.floating,
-    y: float | np.floating,
+    x: FloatScalar,
+    y: FloatScalar,
     xmin: float,
     xmax: float,
     ymin: float,
     ymax: float,
     region: Region,
-) -> tuple[float | np.floating, float | np.floating]:
+) -> tuple[FloatScalar, FloatScalar]:
     x = linear_mapper(x, xmin, xmax, region.x, region.right)
     # positive y direction is reversed
     y = linear_mapper(y, ymin, ymax, region.bottom, region.y)
@@ -902,16 +910,16 @@ def map_pixel_to_coordinate(
 
 
 def linear_mapper(
-    x: float | np.floating | int,
+    x: FloatScalar | int,
     a: float | int,
     b: float | int,
     a_prime: float | int,
     b_prime: float | int,
-) -> float | np.floating:
+) -> FloatScalar:
     return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
 
-def drop_nans_and_infs(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def drop_nans_and_infs(x: FloatArray, y: FloatArray) -> tuple[FloatArray, FloatArray]:
     """Drop NaNs and Infs from x and y arrays.
 
     Args:

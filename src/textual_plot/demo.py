@@ -122,7 +122,7 @@ class DemoApp(App[None]):
                 yield SinePlot()
 
 
-def main():
+def main() -> None:
     app = DemoApp()
     app.run()
 
