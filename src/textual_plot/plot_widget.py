@@ -408,7 +408,25 @@ class PlotWidget(Widget, can_focus=True):
 
     def _position_legend(self) -> None:
         """Position the legend in the plot widget using absolute offsets."""
+        x0, y0 = self._get_legend_origin_coordinates(self._legend_location)
+        legend = self.query_one("#legend", Static)
+        legend.offset = Offset(x0, y0) + self._legend_relative_offset
 
+    def _get_legend_origin_coordinates(
+        self, location: LegendLocation
+    ) -> tuple[int, int]:
+        """Calculate the (x, y) origin coordinates for positioning the legend.
+
+        The coordinates are determined based on the legend's location (top-left,
+        top-right, bottom-left, bottom-right), the size of the data rectangle,
+        the length of the legend labels, and the margins and border spacing.
+        User adjustments (dragging the legend to a different position) are _not_
+        taken into account, but are applied later.
+
+        Returns:
+            A (x, y) tuple of ints representing the coordinates of the top-left
+            corner of the legend within the plot widget.
+        """
         canvas = self.query_one("#plot", Canvas)
         legend = self.query_one("#legend", Static)
 
@@ -416,7 +434,7 @@ class PlotWidget(Widget, can_focus=True):
         # markers and lines in the legend are 3 characters wide, plus a space, so 4
         max_length = 4 + max((len(s) for s in labels), default=0)
 
-        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+        if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             x0 = self._margin_left + 1
         else:
             # LegendLocation is TOPRIGHT or BOTTOMRIGHT
@@ -424,14 +442,14 @@ class PlotWidget(Widget, can_focus=True):
             # leave room for the border
             x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
 
-        if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
+        if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
             y0 = self._margin_top + 1
         else:
             # LegendLocation is TOPRIGHT or BOTTOMRIGHT
             y0 = self._margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
-        legend.offset = Offset(x0, y0) + self._legend_relative_offset
+        return x0, y0
 
     def refresh(
         self,
