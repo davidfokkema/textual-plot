@@ -114,6 +114,7 @@ class PlotWidget(Widget, can_focus=True):
               layer: legend;
               width: auto;
               border: solid white;
+              display: none;
 
               &.dragged {
                 border: heavy yellow;
