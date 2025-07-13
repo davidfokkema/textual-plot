@@ -418,16 +418,16 @@ class PlotWidget(Widget, can_focus=True):
 
         if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             x0 = self._margin_left + 1
-        elif self._legend_location in (
-            LegendLocation.TOPRIGHT,
-            LegendLocation.BOTTOMRIGHT,
-        ):
+        else:
+            # LegendLocation is TOPRIGHT or BOTTOMRIGHT
             x0 = self._margin_left + canvas.size.width - 1 - max_length
             # leave room for the border
             x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
+
         if self._legend_location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
             y0 = self._margin_top + 1
         else:
+            # LegendLocation is TOPRIGHT or BOTTOMRIGHT
             y0 = self._margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
