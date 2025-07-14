@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Converted `allow_pan_and_zoom` to a keyword only argument (#13).
+- The `_scale_rectangle` attribute is now a part of PlotWidget and no longer of Canvas.
 
 ### Fixed
 

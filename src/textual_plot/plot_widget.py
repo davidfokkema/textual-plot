@@ -147,6 +147,7 @@ class PlotWidget(Widget, can_focus=True):
     _margin_top: int = 2
     _margin_bottom: int = 3
     _margin_left: int = 10
+    _scale_rectangle: Region = Region(0, 0, 0, 0)
     _legend_location: LegendLocation = LegendLocation.TOPRIGHT
     _legend_relative_offset: Offset = Offset(0, 0)
 
@@ -205,6 +206,11 @@ class PlotWidget(Widget, can_focus=True):
         self.clear()
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
+        if event.canvas.id == "plot":
+            # The scale rectangle falls just inside the axis rectangle
+            self._scale_rectangle = Region(
+                1, 1, event.size.width - 2, event.size.height - 2
+            )
         event.canvas.reset(size=event.size)
         self._needs_rerender = True
         self._position_legend()
@@ -546,7 +552,6 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
-        assert canvas.scale_rectangle is not None
         if dataset.hires_mode:
             hires_pixels = [
                 self.get_hires_pixel_from_coordinate(xi, yi)
@@ -567,7 +572,6 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
         canvas = self.query_one("#plot", Canvas)
-        assert canvas.scale_rectangle is not None
 
         if dataset.hires_mode:
             hires_pixels = [
@@ -591,7 +595,6 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
-        assert canvas.scale_rectangle is not None
         bottom_margin = self.query_one("#bottom-margin", Canvas)
         bottom_margin.reset()
 
@@ -614,7 +617,7 @@ class PlotWidget(Widget, can_focus=True):
             for y, quad in [
                 # put ticks at top and bottom of scale rectangle
                 (0, (2, 0, 0, 0)),
-                (canvas.scale_rectangle.bottom, (0, 0, 2, 0)),
+                (self._scale_rectangle.bottom, (0, 0, 2, 0)),
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
@@ -622,7 +625,6 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_y_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
-        assert canvas.scale_rectangle is not None
         left_margin = self.query_one("#left-margin", Canvas)
         left_margin.reset()
 
@@ -645,7 +647,7 @@ class PlotWidget(Widget, can_focus=True):
             for x, quad in [
                 # put ticks at left and right of scale rectangle
                 (0, (0, 0, 0, 2)),
-                (canvas.scale_rectangle.right, (0, 2, 0, 0)),
+                (self._scale_rectangle.right, (0, 2, 0, 0)),
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
@@ -727,9 +729,6 @@ class PlotWidget(Widget, can_focus=True):
     def get_pixel_from_coordinate(
         self, x: FloatScalar, y: FloatScalar
     ) -> tuple[int, int]:
-        assert (
-            scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
-        ) is not None
         return map_coordinate_to_pixel(
             x,
             y,
@@ -737,15 +736,12 @@ class PlotWidget(Widget, can_focus=True):
             self._x_max,
             self._y_min,
             self._y_max,
-            region=scale_rectangle,
+            region=self._scale_rectangle,
         )
 
     def get_hires_pixel_from_coordinate(
         self, x: FloatScalar, y: FloatScalar
     ) -> tuple[FloatScalar, FloatScalar]:
-        assert (
-            scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
-        ) is not None
         return map_coordinate_to_hires_pixel(
             x,
             y,
@@ -753,13 +749,10 @@ class PlotWidget(Widget, can_focus=True):
             self._x_max,
             self._y_min,
             self._y_max,
-            region=scale_rectangle,
+            region=self._scale_rectangle,
         )
 
     def get_coordinate_from_pixel(self, x: int, y: int) -> tuple[float, float]:
-        assert (
-            scale_rectangle := self.query_one("#plot", Canvas).scale_rectangle
-        ) is not None
         return map_pixel_to_coordinate(
             x,
             y,
@@ -767,7 +760,7 @@ class PlotWidget(Widget, can_focus=True):
             self._x_max,
             self._y_min,
             self._y_max,
-            region=scale_rectangle,
+            region=self._scale_rectangle,
         )
 
     def _zoom(self, event: MouseScrollDown | MouseScrollUp, factor: float) -> None:
@@ -780,7 +773,6 @@ class PlotWidget(Widget, can_focus=True):
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
-            assert canvas.scale_rectangle is not None
             if widget.id == "bottom-margin":
                 offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
