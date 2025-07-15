@@ -445,7 +445,6 @@ class PlotWidget(Widget, can_focus=True):
             )
             for location in LegendLocation
         }
-        print(type(distances))
         nearest_location = min(distances, key=lambda loc: distances[loc])
         self._legend_location = nearest_location
         self._legend_relative_offset = position - self._get_legend_origin_coordinates(
