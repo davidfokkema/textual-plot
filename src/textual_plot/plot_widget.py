@@ -16,7 +16,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from textual import on
 from textual._box_drawing import BOX_CHARACTERS, combine_quads
-from textual.app import ComposeResult
+from textual.app import ComposeResult, RenderResult
 from textual.containers import Grid
 from textual.css.query import NoMatches
 from textual.events import MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
@@ -230,12 +230,6 @@ class PlotWidget(Widget, can_focus=True):
         self.set_xlimits(None, None)
         self.set_ylimits(None, None)
         self.clear()
-        self.app.theme_changed_signal.subscribe(self, self._theme_changed)
-
-    def _theme_changed(self, theme) -> None:
-        """Flag a rerender when the theme changed."""
-        self._needs_rerender = True
-        self.call_later(self.refresh)
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         if event.canvas.id == "plot":
@@ -244,9 +238,8 @@ class PlotWidget(Widget, can_focus=True):
                 1, 1, event.size.width - 2, event.size.height - 2
             )
         event.canvas.reset(size=event.size)
-        self._needs_rerender = True
         self._position_legend()
-        self.call_later(self.refresh)
+        self.refresh(layout=True)
 
     def watch_margin_top(self) -> None:
         self._update_margin_sizes()
@@ -267,8 +260,7 @@ class PlotWidget(Widget, can_focus=True):
         """Clear the plot canvas."""
         self._datasets = []
         self._labels = []
-        self._needs_rerender = True
-        self.refresh()
+        self.refresh(layout=True)
 
     def plot(
         self,
@@ -303,8 +295,7 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label or "")
-        self._needs_rerender = True
-        self.call_later(self.refresh)
+        self.refresh(layout=True)
 
     def scatter(
         self,
@@ -342,8 +333,7 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label or "")
-        self._needs_rerender = True
-        self.call_later(self.refresh)
+        self.refresh(layout=True)
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
         """Set the limits of the x axis.
@@ -360,8 +350,7 @@ class PlotWidget(Widget, can_focus=True):
         self._auto_x_max = xmax is None
         self._x_min = xmin if xmin is not None else 0.0
         self._x_max = xmax if xmax is not None else 1.0
-        self._needs_rerender = True
-        self.refresh()
+        self.refresh(layout=True)
 
     def set_ylimits(self, ymin: float | None = None, ymax: float | None = None) -> None:
         """Set the limits of the y axis.
@@ -378,8 +367,7 @@ class PlotWidget(Widget, can_focus=True):
         self._auto_y_max = ymax is None
         self._y_min = ymin if ymin is not None else 0.0
         self._y_max = ymax if ymax is not None else 1.0
-        self._needs_rerender = True
-        self.refresh()
+        self.refresh(layout=True)
 
     def set_xlabel(self, label: str) -> None:
         """Set a label for the x axis.
@@ -541,10 +529,17 @@ class PlotWidget(Widget, can_focus=True):
         recompose: bool = False,
     ) -> Self:
         """Refresh the widget."""
-        self._render_plot()
+        if layout is True:
+            self._needs_rerender = True
         return super().refresh(
             *regions, repaint=repaint, layout=layout, recompose=recompose
         )
+
+    def render(self) -> RenderResult:
+        if self._needs_rerender:
+            self._needs_rerender = False
+            self._render_plot()
+        return ""
 
     def _render_plot(self) -> None:
         try:
@@ -554,51 +549,49 @@ class PlotWidget(Widget, can_focus=True):
             # Refresh is called before the widget is composed
             return
 
-        if self._needs_rerender:
-            self._needs_rerender = False
-            # clear canvas
-            canvas.reset()
+        # clear canvas
+        canvas.reset()
 
-            # determine axis limits
-            if self._datasets:
-                xs = [dataset.x for dataset in self._datasets]
-                ys = [dataset.y for dataset in self._datasets]
-                if self._auto_x_min:
-                    self._x_min = float(np.min([np.min(x) for x in xs]))
-                if self._auto_x_max:
-                    self._x_max = float(np.max([np.max(x) for x in xs]))
-                if self._auto_y_min:
-                    self._y_min = float(np.min([np.min(y) for y in ys]))
-                if self._auto_y_max:
-                    self._y_max = float(np.max([np.max(y) for y in ys]))
+        # determine axis limits
+        if self._datasets:
+            xs = [dataset.x for dataset in self._datasets]
+            ys = [dataset.y for dataset in self._datasets]
+            if self._auto_x_min:
+                self._x_min = float(np.min([np.min(x) for x in xs]))
+            if self._auto_x_max:
+                self._x_max = float(np.max([np.max(x) for x in xs]))
+            if self._auto_y_min:
+                self._y_min = float(np.min([np.min(y) for y in ys]))
+            if self._auto_y_max:
+                self._y_max = float(np.max([np.max(y) for y in ys]))
 
-                if self._x_min == self._x_max:
-                    self._x_min -= 1e-6
-                    self._x_max += 1e-6
-                if self._y_min == self._y_max:
-                    self._y_min -= 1e-6
-                    self._y_max += 1e-6
+            if self._x_min == self._x_max:
+                self._x_min -= 1e-6
+                self._x_max += 1e-6
+            if self._y_min == self._y_max:
+                self._y_min -= 1e-6
+                self._y_max += 1e-6
 
-            # render datasets
-            for dataset in self._datasets:
-                if isinstance(dataset, ScatterPlot):
-                    self._render_scatter_plot(dataset)
-                elif isinstance(dataset, LinePlot):
-                    self._render_line_plot(dataset)
+        # render datasets
+        for dataset in self._datasets:
+            if isinstance(dataset, ScatterPlot):
+                self._render_scatter_plot(dataset)
+            elif isinstance(dataset, LinePlot):
+                self._render_line_plot(dataset)
 
-            # render axis, ticks and labels
-            canvas.draw_rectangle_box(
-                0,
-                0,
-                canvas.size.width - 1,
-                canvas.size.height - 1,
-                thickness=2,
-                style=str(self.get_component_rich_style("plot--axis")),
-            )
-            self._render_x_ticks()
-            self._render_y_ticks()
-            self._render_x_label()
-            self._render_y_label()
+        # render axis, ticks and labels
+        canvas.draw_rectangle_box(
+            0,
+            0,
+            canvas.size.width - 1,
+            canvas.size.height - 1,
+            thickness=2,
+            style=str(self.get_component_rich_style("plot--axis")),
+        )
+        self._render_x_ticks()
+        self._render_y_ticks()
+        self._render_x_label()
+        self._render_y_label()
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -861,8 +854,7 @@ class PlotWidget(Widget, can_focus=True):
                     self, self._x_min, self._x_max, self._y_min, self._y_max
                 )
             )
-            self._needs_rerender = True
-            self.call_later(self.refresh)
+            self.refresh(layout=True)
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
@@ -926,8 +918,7 @@ class PlotWidget(Widget, can_focus=True):
         self.post_message(
             self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
         )
-        self._needs_rerender = True
-        self.call_later(self.refresh)
+        self.refresh(layout=True)
 
     def action_reset_scales(self) -> None:
         self.set_xlimits(self._user_x_min, self._user_x_max)
