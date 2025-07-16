@@ -4,9 +4,11 @@ import importlib.resources
 import itertools
 
 import numpy as np
+from textual import on
 from textual.app import App, ComposeResult
-from textual.containers import Container
-from textual.widgets import Footer, Header, TabbedContent, TabPane
+from textual.binding import Binding
+from textual.containers import Container, Grid
+from textual.widgets import Footer, Header, Label, TabbedContent, TabPane
 from textual_hires_canvas import HiResMode
 
 from textual_plot import PlotWidget
@@ -109,17 +111,89 @@ class SinePlot(Container):
         self._phi += 0.1
 
 
+class MultiPlot(Grid):
+    BINDINGS = [Binding("r", "reset_scales", "Reset scales", priority=True)]
+
+    DEFAULT_CSS = """
+        MultiPlot {
+            grid-size: 2 4;
+            grid-rows: auto 1fr;
+
+            Label {
+                text-align: center;
+                text-style: bold;
+                padding: 1 2 0 2;
+                width: 100%;
+            }
+
+            PlotWidget {
+      
+            }
+        }
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Label("f(x) = x")
+        yield Label("f(x) = x ** 2")
+        yield PlotWidget(id="x")
+        yield PlotWidget(id="x-squared")
+        yield Label("f(x) = 1 / x")
+        yield Label("f(x) = sqrt(x)")
+        yield PlotWidget(id="one-over-x")
+        yield PlotWidget(id="sqrt-x")
+
+    def on_mount(self) -> None:
+        for plot in self.query(PlotWidget):
+            plot.margin_left = 8
+            plot.margin_top = 0
+            plot.margin_bottom = 1
+        self.plot()
+
+    def plot(self) -> None:
+        plot = self.query_one("#x", PlotWidget)
+        x = np.linspace(plot._x_min, plot._x_max, 101)
+        plot.clear()
+        plot.plot(x, x, hires_mode=HiResMode.BRAILLE)
+
+        plot = self.query_one("#x-squared", PlotWidget)
+        plot.clear()
+        plot.plot(x, x**2, hires_mode=HiResMode.BRAILLE)
+
+        plot = self.query_one("#one-over-x", PlotWidget)
+        plot.clear()
+        plot.plot(x, 1 / abs(1 + x), hires_mode=HiResMode.BRAILLE)
+
+        plot = self.query_one("#sqrt-x", PlotWidget)
+        plot.clear()
+        plot.plot(x, np.sqrt(x), hires_mode=HiResMode.BRAILLE)
+
+    @on(PlotWidget.ScaleChanged)
+    def adjust_scales(self, event: PlotWidget.ScaleChanged) -> None:
+        for plot in self.query(PlotWidget):
+            plot.set_xlimits(event.x_min, event.x_max)
+            plot.set_ylimits()
+        self.plot()
+
+    def action_reset_scales(self) -> None:
+        for plot in self.query(PlotWidget):
+            plot.set_xlimits(0.0, 1.0)
+            plot.set_ylimits()
+        self.plot()
+
+
 class DemoApp(App[None]):
-    AUTO_FOCUS = "PlotWidget"
+    AUTO_FOCUS = "SpectrumPlot > PlotWidget"
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Footer()
         with TabbedContent():
-            with TabPane("Daytime spectrum"):
+            with TabPane("Daytime spectrum", id="spectrum"):
                 yield SpectrumPlot()
-            with TabPane("Moving sines"):
+            with TabPane("Moving sines", id="sines"):
                 yield SinePlot()
+            with TabPane("Multiplot", id="multiplot"):
+                yield MultiPlot()
 
 
 def main() -> None:
