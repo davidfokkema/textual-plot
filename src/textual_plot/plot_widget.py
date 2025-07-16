@@ -230,6 +230,12 @@ class PlotWidget(Widget, can_focus=True):
         self.set_xlimits(None, None)
         self.set_ylimits(None, None)
         self.clear()
+        self.app.theme_changed_signal.subscribe(self, self._theme_changed)
+
+    def _theme_changed(self, theme) -> None:
+        """Flag a rerender when the theme changed."""
+        self._needs_rerender = True
+        self.call_later(self.refresh)
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         if event.canvas.id == "plot":
@@ -535,7 +541,6 @@ class PlotWidget(Widget, can_focus=True):
         recompose: bool = False,
     ) -> Self:
         """Refresh the widget."""
-        print("Refreshing")
         self._render_plot()
         return super().refresh(
             *regions, repaint=repaint, layout=layout, recompose=recompose
