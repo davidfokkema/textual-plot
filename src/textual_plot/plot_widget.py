@@ -12,13 +12,13 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from textual import on
 from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import ComposeResult
 from textual.containers import Grid
+from textual.css.query import NoMatches
 from textual.events import MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
 from textual.geometry import Offset, Region
 from textual.message import Message
@@ -88,6 +88,14 @@ class PlotWidget(Widget, can_focus=True):
     This widget supports high-resolution line and scatter plots, has nice ticks
     at 1, 2, 5, 10, 20, 50, etc. intervals and supports zooming and panning with
     your pointer device.
+
+    The following component classes can be used to style the widget:
+
+    | Class | Description |
+    | :- | :- |
+    | `plot--axis` | Style of the axes (may be used to change the color). |
+    | `plot--tick` | Style of the tick labels along the axes. |
+    | `plot--label` | Style of axis labels. |
     """
 
     @dataclass
@@ -98,9 +106,25 @@ class PlotWidget(Widget, can_focus=True):
         y_min: float
         y_max: float
 
+    COMPONENT_CLASSES = {"plot--axis", "plot--tick", "plot--label"}
+
     DEFAULT_CSS = """
         PlotWidget {
             layers: plot legend;
+
+            & > .plot--axis {
+                color: $primary;
+            }
+
+            & > .plot--tick {
+                color: $secondary;
+                text-style: bold;
+            }
+
+            & > .plot--label {
+                color: $primary;
+                text-style: bold italic;
+            }
 
             Grid {
                 layer: plot;
@@ -511,13 +535,18 @@ class PlotWidget(Widget, can_focus=True):
         recompose: bool = False,
     ) -> Self:
         """Refresh the widget."""
+        print("Refreshing")
         self._render_plot()
         return super().refresh(
             *regions, repaint=repaint, layout=layout, recompose=recompose
         )
 
     def _render_plot(self) -> None:
-        if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
+        try:
+            if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
+                return
+        except NoMatches:
+            # Refresh is called before the widget is composed
             return
 
         if self._needs_rerender:
@@ -554,7 +583,12 @@ class PlotWidget(Widget, can_focus=True):
 
             # render axis, ticks and labels
             canvas.draw_rectangle_box(
-                0, 0, canvas.size.width - 1, canvas.size.height - 1, thickness=2
+                0,
+                0,
+                canvas.size.width - 1,
+                canvas.size.height - 1,
+                thickness=2,
+                style=str(self.get_component_rich_style("plot--axis")),
             )
             self._render_x_ticks()
             self._render_y_ticks()
@@ -631,8 +665,18 @@ class PlotWidget(Widget, can_focus=True):
                 (self._scale_rectangle.bottom, (0, 0, 2, 0)),
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
-                canvas.set_pixel(x, y, new_pixel)
-            bottom_margin.write_text(x + self.margin_left, 0, label, align)
+                canvas.set_pixel(
+                    x,
+                    y,
+                    new_pixel,
+                    style=str(self.get_component_rich_style("plot--axis")),
+                )
+            bottom_margin.write_text(
+                x + self.margin_left,
+                0,
+                f"[{self.get_component_rich_style('plot--tick')}]{label}",
+                align,
+            )
 
     def _render_y_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -661,8 +705,18 @@ class PlotWidget(Widget, can_focus=True):
                 (self._scale_rectangle.right, (0, 2, 0, 0)),
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
-                canvas.set_pixel(x, y, new_pixel)
-            left_margin.write_text(self.margin_left - 2, y, label, align)
+                canvas.set_pixel(
+                    x,
+                    y,
+                    new_pixel,
+                    style=str(self.get_component_rich_style("plot--axis")),
+                )
+            left_margin.write_text(
+                self.margin_left - 2,
+                y,
+                f"[{self.get_component_rich_style('plot--tick')}]{label}",
+                align,
+            )
 
     def _render_x_label(self) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -670,7 +724,7 @@ class PlotWidget(Widget, can_focus=True):
         margin.write_text(
             canvas.size.width // 2 + self.margin_left,
             2,
-            self._x_label,
+            f"[{self.get_component_rich_style('plot--label')}]{self._x_label}",
             TextAlign.CENTER,
         )
 
@@ -679,7 +733,7 @@ class PlotWidget(Widget, can_focus=True):
         margin.write_text(
             self.margin_left - 2,
             0,
-            self._y_label,
+            f"[{self.get_component_rich_style('plot--label')}]{self._y_label}",
             TextAlign.CENTER,
         )
 
