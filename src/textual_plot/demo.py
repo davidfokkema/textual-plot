@@ -137,7 +137,7 @@ class MultiPlot(Grid):
         yield Label("f(x) = x ** 2")
         yield PlotWidget(id="x")
         yield PlotWidget(id="x-squared")
-        yield Label("f(x) = 1 / x")
+        yield Label("f(x) = 1 / |1 + x|")
         yield Label("f(x) = sqrt(x)")
         yield PlotWidget(id="one-over-x")
         yield PlotWidget(id="sqrt-x")
