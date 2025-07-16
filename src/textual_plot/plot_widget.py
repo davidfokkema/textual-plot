@@ -22,6 +22,7 @@ from textual.containers import Grid
 from textual.events import MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
 from textual.geometry import Offset, Region
 from textual.message import Message
+from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
@@ -125,6 +126,10 @@ class PlotWidget(Widget, can_focus=True):
 
     BINDINGS = [("r", "reset_scales", "Reset scales")]
 
+    margin_top = reactive(2)
+    margin_bottom = reactive(3)
+    margin_left = reactive(10)
+
     _datasets: list[DataSet]
     _labels: list[str]
 
@@ -144,9 +149,6 @@ class PlotWidget(Widget, can_focus=True):
     _x_ticks: Sequence[float] | None = None
     _y_ticks: Sequence[float] | None = None
 
-    _margin_top: int = 2
-    _margin_bottom: int = 3
-    _margin_left: int = 10
     _scale_rectangle: Region = Region(0, 0, 0, 0)
     _legend_location: LegendLocation = LegendLocation.TOPRIGHT
     _legend_relative_offset: Offset = Offset(0, 0)
@@ -216,10 +218,20 @@ class PlotWidget(Widget, can_focus=True):
         self._position_legend()
         self.call_later(self.refresh)
 
+    def watch_margin_top(self) -> None:
+        self._update_margin_sizes()
+
+    def watch_margin_bottom(self) -> None:
+        self._update_margin_sizes()
+
+    def watch_margin_left(self) -> None:
+        self._update_margin_sizes()
+
     def _update_margin_sizes(self) -> None:
+        """Update grid layout taking plot margins into account."""
         grid = self.query_one(Grid)
-        grid.styles.grid_columns = f"{self._margin_left} 1fr"
-        grid.styles.grid_rows = f"{self._margin_top} 1fr {self._margin_bottom}"
+        grid.styles.grid_columns = f"{self.margin_left} 1fr"
+        grid.styles.grid_rows = f"{self.margin_top} 1fr {self.margin_bottom}"
 
     def clear(self) -> None:
         """Clear the plot canvas."""
@@ -475,18 +487,18 @@ class PlotWidget(Widget, can_focus=True):
         max_length = 4 + max((len(s) for s in labels), default=0)
 
         if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
-            x0 = self._margin_left + 1
+            x0 = self.margin_left + 1
         else:
             # LegendLocation is TOPRIGHT or BOTTOMRIGHT
-            x0 = self._margin_left + canvas.size.width - 1 - max_length
+            x0 = self.margin_left + canvas.size.width - 1 - max_length
             # leave room for the border
             x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
 
         if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
-            y0 = self._margin_top + 1
+            y0 = self.margin_top + 1
         else:
             # LegendLocation is TOPRIGHT or BOTTOMRIGHT
-            y0 = self._margin_top + canvas.size.height - 1 - len(labels)
+            y0 = self.margin_top + canvas.size.height - 1 - len(labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
         return Offset(x0, y0)
@@ -620,7 +632,7 @@ class PlotWidget(Widget, can_focus=True):
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
-            bottom_margin.write_text(x + self._margin_left, 0, label, align)
+            bottom_margin.write_text(x + self.margin_left, 0, label, align)
 
     def _render_y_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
@@ -634,7 +646,7 @@ class PlotWidget(Widget, can_focus=True):
             y_ticks = self._y_ticks
             y_labels = self.get_labels_for_ticks(y_ticks)
         # truncate y-labels to the left margin width
-        y_labels = [label[: self._margin_left - 1] for label in y_labels]
+        y_labels = [label[: self.margin_left - 1] for label in y_labels]
         align = TextAlign.RIGHT
         for tick, label in zip(y_ticks, y_labels):
             if tick < self._y_min or tick > self._y_max:
@@ -650,13 +662,13 @@ class PlotWidget(Widget, can_focus=True):
             ]:
                 new_pixel = self.combine_quad_with_pixel(quad, canvas, x, y)
                 canvas.set_pixel(x, y, new_pixel)
-            left_margin.write_text(self._margin_left - 2, y, label, align)
+            left_margin.write_text(self.margin_left - 2, y, label, align)
 
     def _render_x_label(self) -> None:
         canvas = self.query_one("#plot", Canvas)
         margin = self.query_one("#bottom-margin", Canvas)
         margin.write_text(
-            canvas.size.width // 2 + self._margin_left,
+            canvas.size.width // 2 + self.margin_left,
             2,
             self._x_label,
             TextAlign.CENTER,
@@ -665,7 +677,7 @@ class PlotWidget(Widget, can_focus=True):
     def _render_y_label(self) -> None:
         margin = self.query_one("#top-margin", Canvas)
         margin.write_text(
-            self._margin_left - 2,
+            self.margin_left - 2,
             0,
             self._y_label,
             TextAlign.CENTER,
