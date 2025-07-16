@@ -19,7 +19,15 @@ from textual._box_drawing import BOX_CHARACTERS, combine_quads
 from textual.app import ComposeResult, RenderResult
 from textual.containers import Grid
 from textual.css.query import NoMatches
-from textual.events import MouseDown, MouseMove, MouseScrollDown, MouseScrollUp, MouseUp
+from textual.events import (
+    Blur,
+    Focus,
+    MouseDown,
+    MouseMove,
+    MouseScrollDown,
+    MouseScrollUp,
+    MouseUp,
+)
 from textual.geometry import Offset, Region
 from textual.message import Message
 from textual.reactive import reactive
@@ -130,7 +138,7 @@ class PlotWidget(Widget, can_focus=True):
                 layer: plot;
                 grid-size: 2 3;
 
-                #top-margin, #bottom-margin {
+                #margin-top, #margin-bottom {
                     column-span: 2;
                 }
             }
@@ -219,10 +227,10 @@ class PlotWidget(Widget, can_focus=True):
 
     def compose(self) -> ComposeResult:
         with Grid():
-            yield Canvas(1, 1, id="top-margin")
-            yield Canvas(1, 1, id="left-margin")
+            yield Canvas(1, 1, id="margin-top")
+            yield Canvas(1, 1, id="margin-left")
             yield Canvas(1, 1, id="plot")
-            yield Canvas(1, 1, id="bottom-margin")
+            yield Canvas(1, 1, id="margin-bottom")
         yield Legend(id="legend")
 
     def on_mount(self) -> None:
@@ -230,6 +238,11 @@ class PlotWidget(Widget, can_focus=True):
         self.set_xlimits(None, None)
         self.set_ylimits(None, None)
         self.clear()
+
+    @on(Focus)
+    @on(Blur)
+    def rerender(self) -> None:
+        self.refresh(layout=True)
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
         if event.canvas.id == "plot":
@@ -638,7 +651,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
-        bottom_margin = self.query_one("#bottom-margin", Canvas)
+        bottom_margin = self.query_one("#margin-bottom", Canvas)
         bottom_margin.reset()
 
         x_ticks: Sequence[float]
@@ -678,7 +691,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_y_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)
-        left_margin = self.query_one("#left-margin", Canvas)
+        left_margin = self.query_one("#margin-left", Canvas)
         left_margin.reset()
 
         y_ticks: Sequence[float]
@@ -718,7 +731,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_x_label(self) -> None:
         canvas = self.query_one("#plot", Canvas)
-        margin = self.query_one("#bottom-margin", Canvas)
+        margin = self.query_one("#margin-bottom", Canvas)
         margin.write_text(
             canvas.size.width // 2 + self.margin_left,
             2,
@@ -727,7 +740,7 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _render_y_label(self) -> None:
-        margin = self.query_one("#top-margin", Canvas)
+        margin = self.query_one("#margin-top", Canvas)
         margin.write_text(
             self.margin_left - 2,
             0,
@@ -838,15 +851,15 @@ class PlotWidget(Widget, can_focus=True):
         if (offset := event.get_content_offset(self)) is not None:
             widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
             canvas = self.query_one("#plot", Canvas)
-            if widget.id == "bottom-margin":
+            if widget.id == "margin-bottom":
                 offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
-            if widget.id in ("plot", "bottom-margin"):
+            if widget.id in ("plot", "margin-bottom"):
                 self._auto_x_min = False
                 self._auto_x_max = False
                 self._x_min = (self._x_min + factor * x) / (1 + factor)
                 self._x_max = (self._x_max + factor * x) / (1 + factor)
-            if widget.id in ("plot", "left-margin"):
+            if widget.id in ("plot", "margin-left"):
                 self._auto_y_min = False
                 self._auto_y_max = False
                 self._y_min = (self._y_min + factor * y) / (1 + factor)
@@ -907,12 +920,12 @@ class PlotWidget(Widget, can_focus=True):
         dx, dy = x2 - x1, y1 - y2
 
         assert event.widget is not None
-        if event.widget.id in ("plot", "bottom-margin"):
+        if event.widget.id in ("plot", "margin-bottom"):
             self._auto_x_min = False
             self._auto_x_max = False
             self._x_min -= dx * event.delta_x
             self._x_max -= dx * event.delta_x
-        if event.widget.id in ("plot", "left-margin"):
+        if event.widget.id in ("plot", "margin-left"):
             self._auto_y_min = False
             self._auto_y_max = False
             self._y_min += dy * event.delta_y
