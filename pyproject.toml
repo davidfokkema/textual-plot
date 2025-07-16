@@ -10,7 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy>=2.2.1",
     "textual>=1.0.0",
-    "textual-hires-canvas>=0.10.0",
+    "textual-hires-canvas>=0.10.1",
 ]
 
 [build-system]

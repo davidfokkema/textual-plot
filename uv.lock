@@ -874,15 +874,15 @@ wheels = [
 
 [[package]]
 name = "textual-hires-canvas"
-version = "0.10.0"
+version = "0.10.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "textual" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/dc/c2e31337c726bf12a57df785977ba6c80599a5c6060eab3551c84d3382df/textual_hires_canvas-0.10.0.tar.gz", hash = "sha256:d355fbd6bf4ff33e594ea0768911482db171272385e73be36da3748428a0b74f", size = 1214111, upload-time = "2025-07-14T11:12:13.9Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/77/54e7592ea514e022461c7defe7a0bed7817f233b963d2c732f9d345a9081/textual_hires_canvas-0.10.1.tar.gz", hash = "sha256:d7285ce5cb210ebbea0f37469bb1be9de59448d8e00ec7734a8f85ca0397dd20", size = 1214167, upload-time = "2025-07-16T14:14:38.319Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ea/f1/649b7b0f014cc8df6cd64fb23015e7b31ac3a4a814f571623cf71d3871ce/textual_hires_canvas-0.10.0-py3-none-any.whl", hash = "sha256:0cd9d815b7bd18eefc30c4626a03a297fbe1fe8ea959792bb9d953c5750520dd", size = 17660, upload-time = "2025-07-14T11:12:12.115Z" },
+    { url = "https://files.pythonhosted.org/packages/15/ff/086048544a448916d2e578c08fe89955dae6222bb2a8ea13e88f3ae2b9ed/textual_hires_canvas-0.10.1-py3-none-any.whl", hash = "sha256:7f6da9368f1f6bb59fa4ba4039ee9656f36b289cd76e4693b8b919916cf61a77", size = 17660, upload-time = "2025-07-16T14:14:37.064Z" },
 ]
 
 [[package]]
@@ -907,7 +907,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.2.1" },
     { name = "textual", specifier = ">=1.0.0" },
-    { name = "textual-hires-canvas", specifier = ">=0.10.0" },
+    { name = "textual-hires-canvas", specifier = ">=0.10.1" },
 ]
 
 [package.metadata.requires-dev]
