@@ -10,7 +10,7 @@ from textual_plot.plot_widget import (
 
 class TestImplementation:
     @pytest.mark.parametrize(
-        "x, y, xmin, xmax, ymin, ymax, region,expected",
+        "x, y, xmin, xmax, ymin, ymax, region, expected",
         [
             (0.0, 0.0, 0.0, 10.0, 0.0, 20.0, Region(0, 0, 4, 4), (0, 3)),
             (1.0, 1.0, 0.0, 10.0, 0.0, 20.0, Region(0, 0, 4, 4), (0, 3)),
@@ -25,7 +25,7 @@ class TestImplementation:
         assert map_coordinate_to_pixel(x, y, xmin, xmax, ymin, ymax, region) == expected
 
     @pytest.mark.parametrize(
-        "x, y, xmin, xmax, ymin, ymax, region,expected",
+        "x, y, xmin, xmax, ymin, ymax, region, expected",
         [
             (0.0, 0.0, 0.0, 10.0, 0.0, 20.0, Region(0, 0, 4, 4), (0.0, 4.0)),
             (1.0, 1.0, 0.0, 10.0, 0.0, 20.0, Region(0, 0, 4, 4), (0.4, 3.8)),
@@ -43,7 +43,7 @@ class TestImplementation:
         )
 
     @pytest.mark.parametrize(
-        "px, py, xmin, xmax, ymin, ymax, region,expected",
+        "px, py, xmin, xmax, ymin, ymax, region, expected",
         [
             (0, 3, 0.0, 10.0, 0.0, 20.0, Region(0, 0, 4, 4), (1.25, 2.5)),
             (2, 2, 0.0, 10.0, 0.0, 20.0, Region(0, 0, 4, 4), (6.25, 7.5)),

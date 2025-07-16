@@ -748,10 +748,7 @@ class PlotWidget(Widget, can_focus=True):
         interval = (intervals[idx - 1] if idx > 0 else intervals[0]) * 10**power
         if delta_x // interval > max_ticks:
             interval = intervals[idx] * 10**power
-        ticks = [
-            float(t * interval)
-            for t in np.arange(ceil(min_ / interval), max_ // interval + 1)
-        ]
+        ticks = [float(t) for t in np.arange(min_, max_ + interval / 2, interval)]
         decimals = -min(0, power)
         tick_labels = self.get_labels_for_ticks(ticks, decimals)
         return ticks, tick_labels
