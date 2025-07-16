@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New public attributes for the top, bottom and left margins (#8).
 - New component classes to style the axes, and the tick and axis labels.
 
+### Changed
+
+- Default look uses theme colours, and changing the theme updates the plot.
+
 ## [0.7.0] - 2025-07-14
 
 ### Added
