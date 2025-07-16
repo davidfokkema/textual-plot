@@ -120,8 +120,12 @@ class PlotWidget(Widget, can_focus=True):
         PlotWidget {
             layers: plot legend;
 
-            & > .plot--axis {
+            &:focus > .plot--axis {
                 color: $primary;
+            }
+
+            & > .plot--axis {
+                color: $secondary;
             }
 
             & > .plot--tick {
