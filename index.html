@@ -1,0 +1,879 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+        <link rel="next" href="reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.0">
+    
+    
+      
+        <title>textual-plot</title>
+      
+    
+    
+      <link rel="stylesheet" href="assets/stylesheets/main.618322db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#a-native-plotting-widget-for-textual-apps" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="." title="textual-plot" class="md-header__button md-logo" aria-label="textual-plot" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            textual-plot
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              A native plotting widget for Textual apps
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="." title="textual-plot" class="md-nav__button md-logo" aria-label="textual-plot" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    textual-plot
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A native plotting widget for Textual apps
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="." class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A native plotting widget for Textual apps
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-demo-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the demo / installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-resolution-plotting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-resolution plotting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scatter-plots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scatter plots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-full-demo-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The full demo code
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#list-of-important-plot-widget-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List of important plot widget methods
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#screenshots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Screenshots
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#features" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Features
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-the-demo-installation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the demo / installation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tutorial" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tutorial
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Tutorial">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#high-resolution-plotting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-resolution plotting
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scatter-plots" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scatter plots
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-full-demo-code" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The full demo code
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#list-of-important-plot-widget-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        List of important plot widget methods
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#alternatives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Alternatives
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="a-native-plotting-widget-for-textual-apps">A native plotting widget for Textual apps</h1>
+<p><a href="https://www.textualize.io/">Textual</a> is an excellent Python framework for building applications in the terminal, or on the web. This library provides a plot widget which your app can use to plot all kinds of quantitative data. So, no pie charts, sorry. The widget support scatter plots and line plots, and can also draw using <em>high-resolution</em> characters like unicode half blocks, quadrants and 8-dot Braille characters. It may still be apparent that these are drawn using characters that take up a full block in the terminal, especially when plot series overlap. However, the use of these characters can reduce the line thickness and improve the resolution tremendously.</p>
+<h2 id="screenshots">Screenshots</h2>
+<p><img alt="screenshot of day-time spectrum" src="images/screenshot-spectrum.png" /></p>
+<p><img alt="screenshot of moving sines" src="images/screenshot-moving-sines.png" /></p>
+<p><img alt="video of plot demo" src="https://github.com/user-attachments/assets/dd725fdc-e182-4bed-8951-5899bdb99a20" /></p>
+<p>The <em>daytime spectrum</em> dataset shows the visible-light spectrum recorded by an Ocean Optics USB2000+ spectrometer using the <a href="https://github.com/davidfokkema/deadsea-optics">DeadSea Optics</a> software. It was taken in the morning while the detector was facing my office window.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li>Line plots</li>
+<li>Scatter plots</li>
+<li>Automatic scaling and tick placement at <em>nice</em> intervals (1, 2, 5, etc.)</li>
+<li>Axes labels</li>
+<li>High-resolution modes using unicode half blocks (1x2), quadrants (2x2) and braille (2x8) characters</li>
+<li>Mouse support for <em>zooming</em> (mouse scrolling) and <em>panning</em> (mouse dragging)</li>
+<li>Horizontal- or vertical-only zooming and panning when the mouse cursor is in the plot margins</li>
+</ul>
+<h2 id="running-the-demo-installation">Running the demo / installation</h2>
+<p>Using <a href="https://astral.sh/uv/">uv</a>:</p>
+<pre><code class="language-console">uvx textual-plot
+</code></pre>
+<p>Using <a href="https://pipx.pypa.io/">pipx</a>:</p>
+<pre><code class="language-console">pipx run textual-plot
+</code></pre>
+<p>Install the package with either</p>
+<pre><code class="language-console">uv tool install textual-plot
+</code></pre>
+<p>or</p>
+<pre><code class="language-console">pipx install textual-plot
+</code></pre>
+<p>Alternatively, install the package with <code>pip</code> (please, use virtual environments) and run the demo:</p>
+<pre><code class="language-console">pip install textual-plot
+</code></pre>
+<p>In all cases, you can run the demo with</p>
+<pre><code class="language-console">textual-plot
+</code></pre>
+<h2 id="tutorial">Tutorial</h2>
+<p>A minimal example is shown below:
+<img alt="screenshot of minimal example" src="images/screenshot-minimal.png" /></p>
+<pre><code class="language-python">from textual.app import App, ComposeResult
+
+from textual_plot import PlotWidget
+
+
+class MinimalApp(App[None]):
+    def compose(self) -&gt; ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -&gt; None:
+        plot = self.query_one(PlotWidget)
+        plot.plot(x=[0, 1, 2, 3, 4], y=[0, 1, 4, 9, 16])
+
+
+MinimalApp().run()
+</code></pre>
+<p>You include a <code>PlotWidget</code> in your compose method and after your UI has finished composing, you can start plotting data. The <code>plot()</code> method takes <code>x</code> and <code>y</code> data which should be array-like. It can be lists, or NumPy arrays, or really anything that can be turned into a NumPy array which is what's used internally. The <code>plot()</code> method further accepts a <code>line_style</code> argument which accepts Textual styles like <code>"white"</code>, <code>"red on blue3"</code>, etc. For standard low-resolution plots, it does not make much sense to specify a background color since the text character used for plotting is a full block filling an entire cell.</p>
+<h3 id="high-resolution-plotting">High-resolution plotting</h3>
+<p>The plot widget supports high-resolution plotting where the character does not take up the full cell:</p>
+<p><img alt="screenshot of minimal hires example" src="images/screenshot-minimal-hires.png" /></p>
+<pre><code class="language-python">from textual.app import App, ComposeResult
+
+from textual_plot import HiResMode, PlotWidget
+
+
+class MinimalApp(App[None]):
+    def compose(self) -&gt; ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -&gt; None:
+        plot = self.query_one(PlotWidget)
+        plot.plot(
+            x=[0, 1, 2, 3, 4],
+            y=[0, 1, 4, 9, 16],
+            hires_mode=HiResMode.BRAILLE,
+            line_style=&quot;bright_yellow on blue3&quot;,
+        )
+
+
+MinimalApp().run()
+</code></pre>
+<p>Admittedly, you'll be mostly plotting with foreground colors only. The plot widget supports four high-resolution modes: <code>Hires.BRAILLE</code> (2x8), <code>HiRes.HALFBLOCK</code> (1x2) and <code>HiRes.QUADRANT</code> (2x2) where the size between brackets is the number of 'pixels' inside a single cell.</p>
+<h3 id="scatter-plots">Scatter plots</h3>
+<p>To create scatter plots, use the <code>scatter()</code> method, which accepts a <code>marker</code> argument which can be any unicode character (as long as it is one cell wide, which excludes many emoji characters and non-Western scripts):
+<img alt="screenshot of scatter plot" src="images/screenshot-scatter.png" /></p>
+<pre><code class="language-python">import numpy as np
+from textual.app import App, ComposeResult
+
+from textual_plot import PlotWidget
+
+
+class MinimalApp(App[None]):
+    def compose(self) -&gt; ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -&gt; None:
+        rng = np.random.default_rng(seed=4)
+        plot = self.query_one(PlotWidget)
+
+        x = np.linspace(0, 10, 21)
+        y = 0.2 * x - 1 + rng.normal(loc=0.0, scale=0.2, size=len(x))
+        plot.scatter(x, y, marker=&quot;⦿&quot;)
+
+
+MinimalApp().run()
+</code></pre>
+<h3 id="the-full-demo-code">The full demo code</h3>
+<p>Finally, the code of the demo is given below, showing how you can handle multiple plots and updating 'live' data:</p>
+<pre><code class="language-python">import importlib.resources
+import itertools
+
+import numpy as np
+from textual.app import App, ComposeResult
+from textual.containers import Container
+from textual.widgets import Footer, Header, TabbedContent, TabPane
+from textual_hires_canvas import HiResMode
+
+from textual_plot import PlotWidget
+
+
+class SpectrumPlot(Container):
+    BINDINGS = [(&quot;m&quot;, &quot;cycle_modes&quot;, &quot;Cycle Modes&quot;)]
+
+    _modes = itertools.cycle(
+        [HiResMode.QUADRANT, HiResMode.BRAILLE, None, HiResMode.HALFBLOCK]
+    )
+    mode = next(_modes)
+
+    def compose(self) -&gt; ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -&gt; None:
+        # Read CSV data included with this package
+        self.spectrum_csv = importlib.resources.read_text(
+            &quot;textual_plot.resources&quot;, &quot;morning-spectrum.csv&quot;
+        ).splitlines()
+
+        # plot the spectrum and set ymin limit once
+        self.plot_spectrum()
+        self.query_one(PlotWidget).set_ylimits(ymin=0)
+
+    def plot_spectrum(self) -&gt; None:
+        x, y = np.genfromtxt(
+            self.spectrum_csv,
+            delimiter=&quot;,&quot;,
+            names=True,
+            unpack=True,
+        )
+
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+        plot.plot(x, y, hires_mode=self.mode)
+        plot.set_xlabel(&quot;Wavelength (nm)&quot;)
+        plot.set_ylabel(&quot;Intensity&quot;)
+
+    def action_cycle_modes(self) -&gt; None:
+        self.mode = next(self._modes)
+        self.plot_spectrum()
+
+
+class SinePlot(Container):
+    _phi: float = 0.0
+
+    def compose(self) -&gt; ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -&gt; None:
+        self._timer = self.set_interval(1 / 24, self.plot_moving_sines, pause=True)
+
+    def on_show(self) -&gt; None:
+        self._timer.resume()
+
+    def on_hide(self) -&gt; None:
+        self._timer.pause()
+
+    def plot_moving_sines(self) -&gt; None:
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+        x = np.linspace(0, 10, 41)
+        y = x**2 / 3.5
+        plot.scatter(
+            x,
+            y,
+            marker_style=&quot;blue&quot;,
+            # marker=&quot;*&quot;,
+            hires_mode=HiResMode.QUADRANT,
+        )
+        x = np.linspace(0, 10, 200)
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi),
+            line_style=&quot;blue&quot;,
+            hires_mode=None,
+        )
+
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 1),
+            line_style=&quot;red3&quot;,
+            hires_mode=HiResMode.HALFBLOCK,
+        )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 2),
+            line_style=&quot;green&quot;,
+            hires_mode=HiResMode.QUADRANT,
+        )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x + self._phi + 3),
+            line_style=&quot;yellow&quot;,
+            hires_mode=HiResMode.BRAILLE,
+        )
+
+        self._phi += 0.1
+
+
+class DemoApp(App[None]):
+    AUTO_FOCUS = &quot;PlotWidget&quot;
+
+    def compose(self) -&gt; ComposeResult:
+        yield Header()
+        yield Footer()
+        with TabbedContent():
+            with TabPane(&quot;Daytime spectrum&quot;):
+                yield SpectrumPlot()
+            with TabPane(&quot;Moving sines&quot;):
+                yield SinePlot()
+
+
+def main():
+    app = DemoApp()
+    app.run()
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<h2 id="list-of-important-plot-widget-methods">List of important plot widget methods</h2>
+<ul>
+<li><code>clear()</code>: clear the plot.</li>
+<li><code>plot(x, y, line_style, hires_mode, label)</code>: plot a dataset with a line using the specified linestyle and high-resolution mode.</li>
+<li><code>scatter(x, y, marker, marker_style, hires_mode, label)</code>: plot a dataset with markers using the specified marker, marker style and high-resolution mode.</li>
+<li><code>set_xlimits(xmin, xmax)</code>: set the x-axis limits. <code>None</code> means autoscale.</li>
+<li><code>set_ylimits(xmin, xmax)</code>: set the y-axis limits. <code>None</code> means autoscale.</li>
+<li><code>set_xticks(ticks)</code>: manually specify x-axis tick locations.</li>
+<li><code>set_yticks(ticks)</code>: manually specify y-axis tick locations.</li>
+<li><code>set_xlabel(label)</code>: set the x-axis label.</li>
+<li><code>set_ylabel(label)</code>: set the y-axis label.</li>
+<li><code>show_legend(location, is_visible)</code>: show or hide the plot legend.</li>
+</ul>
+<p>Various other methods exist, mostly for coordinate transformations and handling UI events to zoom and pan the plot.</p>
+<h2 id="alternatives">Alternatives</h2>
+<p><a href="https://github.com/Textualize/textual-plotext">Textual-plotext</a> uses the <a href="https://github.com/piccolomo/plotext">plotext</a> library which has more features than this library. However, it does not support interactive zooming or panning and the tick placement isn't as nice since it simply divides up the axes range into a fixed number of intervals giving values like 0, 123.4, 246.8, etc.</p>
+<h2 id="roadmap">Roadmap</h2>
+<p>The performance can be much improved, but we're working on that. Next, we'll work on adding some features like date axes. This will (probably) not turn into a general do-it-all plotting library. We focus first on handling quantitative data in the context of physics experiments. If you'd like to see features added, do let us know. And if a PR is of good quality and is a good fit for the API, we'd love to handle more use cases beyond physics. And who knows, maybe this <em>will</em> turn into a general plotting library!</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": ".", "features": [], "search": "assets/javascripts/workers/search.7a47a382.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="assets/javascripts/bundle.e71a0d61.min.js"></script>
+      
+    
+  </body>
+</html>
