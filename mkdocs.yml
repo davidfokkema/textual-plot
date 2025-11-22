@@ -8,3 +8,5 @@ plugins:
         python:
           options:
             docstring_style: google
+            preload_modules:
+            - textual_hires_canvas
