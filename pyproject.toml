@@ -19,6 +19,8 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "mkdocs-material>=9.7.0",
+    "mkdocstrings-python>=1.19.0",
     "mypy>=1.14.1",
     "pytest>=8.3.4",
     "rust-just>=1.38.0",

@@ -12,3 +12,10 @@ format:
 
 fix:
     uvx ruff check --fix
+
+# Serve the documentation.
+serve:
+    uv run mkdocs serve
+
+deploy:
+    uv run mkdocs gh-deploy
