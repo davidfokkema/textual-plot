@@ -10,3 +10,4 @@ site/
 
 # Virtual environments
 .venv
+*.jsonl
