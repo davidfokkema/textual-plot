@@ -4,9 +4,9 @@
 
 ## Screenshots
 
-![screenshot of day-time spectrum](docs/images/screenshot-spectrum.png)
+![screenshot of day-time spectrum](https://raw.githubusercontent.com/davidfokkema/textual-plot/refs/heads/main/docs/images/screenshot-spectrum.png)
 
-![screenshot of moving sines](docs/images/screenshot-moving-sines.png)
+![screenshot of moving sines](https://raw.githubusercontent.com/davidfokkema/textual-plot/refs/heads/main/docs/images/screenshot-moving-sines.png)
 
 ![video of plot demo](https://github.com/user-attachments/assets/dd725fdc-e182-4bed-8951-5899bdb99a20)
 
@@ -55,7 +55,7 @@ textual-plot
 ## Tutorial
 
 A minimal example is shown below:
-![screenshot of minimal example](docs/images/screenshot-minimal.png)
+![screenshot of minimal example](https://raw.githubusercontent.com/davidfokkema/textual-plot/refs/heads/main/docs/images/screenshot-minimal.png)
 ```python
 from textual.app import App, ComposeResult
 
@@ -79,7 +79,7 @@ You include a `PlotWidget` in your compose method and after your UI has finished
 
 The plot widget supports high-resolution plotting where the character does not take up the full cell:
 
-![screenshot of minimal hires example](docs/images/screenshot-minimal-hires.png)
+![screenshot of minimal hires example](https://raw.githubusercontent.com/davidfokkema/textual-plot/refs/heads/main/docs/images/screenshot-minimal-hires.png)
 
 ```python
 from textual.app import App, ComposeResult
@@ -108,7 +108,7 @@ Admittedly, you'll be mostly plotting with foreground colors only. The plot widg
 ### Scatter plots
 
 To create scatter plots, use the `scatter()` method, which accepts a `marker` argument which can be any unicode character (as long as it is one cell wide, which excludes many emoji characters and non-Western scripts):
-![screenshot of scatter plot](docs/images/screenshot-scatter.png)
+![screenshot of scatter plot](https://raw.githubusercontent.com/davidfokkema/textual-plot/refs/heads/main/docs/images/screenshot-scatter.png)
 ```python
 import numpy as np
 from textual.app import App, ComposeResult
