@@ -373,9 +373,9 @@ class PlotWidget(Widget, can_focus=True):
         """Set the limits of the y axis.
 
         Args:
-            xmin: A float with the minimum y value or None for autoscaling.
+            ymin: A float with the minimum y value or None for autoscaling.
                 Defaults to None.
-            xmax: A float with the maximum y value or None for autoscaling.
+            ymax: A float with the maximum y value or None for autoscaling.
                 Defaults to None.
         """
         self._user_y_min = ymin
