@@ -2062,9 +2062,9 @@ your pointer device.</p>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the limits of the y axis.</span>
 
 <span class="sd">        Args:</span>
-<span class="sd">            xmin: A float with the minimum y value or None for autoscaling.</span>
+<span class="sd">            ymin: A float with the minimum y value or None for autoscaling.</span>
 <span class="sd">                Defaults to None.</span>
-<span class="sd">            xmax: A float with the maximum y value or None for autoscaling.</span>
+<span class="sd">            ymax: A float with the maximum y value or None for autoscaling.</span>
 <span class="sd">                Defaults to None.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_user_y_min</span> <span class="o">=</span> <span class="n">ymin</span>
@@ -3794,9 +3794,10 @@ Defaults to None.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                <code>xmin</code>
+                <code>ymin</code>
             </td>
             <td>
+                  <code><span title="float">float</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3805,14 +3806,15 @@ Defaults to None.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
             <td>
-                <code>xmax</code>
+                <code>ymax</code>
             </td>
             <td>
+                  <code><span title="float">float</span> | None</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -3821,7 +3823,7 @@ Defaults to None.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -3849,9 +3851,9 @@ Defaults to None.</p>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the limits of the y axis.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        xmin: A float with the minimum y value or None for autoscaling.</span>
+<span class="sd">        ymin: A float with the minimum y value or None for autoscaling.</span>
 <span class="sd">            Defaults to None.</span>
-<span class="sd">        xmax: A float with the maximum y value or None for autoscaling.</span>
+<span class="sd">        ymax: A float with the maximum y value or None for autoscaling.</span>
 <span class="sd">            Defaults to None.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="bp">self</span><span class="o">.</span><span class="n">_user_y_min</span> <span class="o">=</span> <span class="n">ymin</span>
