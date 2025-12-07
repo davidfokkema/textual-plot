@@ -767,7 +767,7 @@ class PlotWidget(Widget, can_focus=True):
         tick_spacing = delta_x / 5
         power = floor(log10(tick_spacing))
         approx_interval = tick_spacing / 10**power
-        intervals = np.array([1, 2, 5, 10])
+        intervals = np.array([1.0, 2.0, 5.0, 10.0])
 
         idx = intervals.searchsorted(approx_interval)
         interval = (intervals[idx - 1] if idx > 0 else intervals[0]) * 10**power
