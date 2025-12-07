@@ -178,16 +178,16 @@ class MultiPlot(Grid):
 
 
 class DemoApp(App[None]):
-    AUTO_FOCUS = "SpectrumPlot > PlotWidget"
+    AUTO_FOCUS = "SinePlot > PlotWidget"
 
     def compose(self) -> ComposeResult:
         yield Header()
         yield Footer()
         with TabbedContent():
-            with TabPane("Daytime spectrum", id="spectrum"):
-                yield SpectrumPlot()
             with TabPane("Moving sines", id="sines"):
                 yield SinePlot()
+            with TabPane("Daytime spectrum", id="spectrum"):
+                yield SpectrumPlot()
             with TabPane("Multiplot", id="multiplot"):
                 yield MultiPlot()
 
