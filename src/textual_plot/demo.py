@@ -80,16 +80,9 @@ class SinePlot(Container):
         x = np.arange(0, self.N * 0.1, 0.1)
         plot.plot(
             x=x,
-            y=10 + 10 * np.sin(x),
-            line_style="blue",
-            hires_mode=None,
-        )
-
-        plot.plot(
-            x=x,
-            y=10 + 10 * np.sin(x + 1),
-            line_style="red3",
-            hires_mode=HiResMode.HALFBLOCK,
+            y=10 + 10 * np.sin(x + 3),
+            line_style="yellow",
+            hires_mode=HiResMode.BRAILLE,
         )
         plot.plot(
             x=x,
@@ -99,10 +92,17 @@ class SinePlot(Container):
         )
         plot.plot(
             x=x,
-            y=10 + 10 * np.sin(x + 3),
-            line_style="yellow",
-            hires_mode=HiResMode.BRAILLE,
+            y=10 + 10 * np.sin(x + 1),
+            line_style="red3",
+            hires_mode=HiResMode.HALFBLOCK,
         )
+        plot.plot(
+            x=x,
+            y=10 + 10 * np.sin(x),
+            line_style="blue",
+            hires_mode=None,
+        )
+
         plot.set_ylimits(0, 20)
         self.N += 1
 
