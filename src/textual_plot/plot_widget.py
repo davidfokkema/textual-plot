@@ -574,13 +574,21 @@ class PlotWidget(Widget, can_focus=True):
             xs = [dataset.x for dataset in self._datasets]
             ys = [dataset.y for dataset in self._datasets]
             if self._auto_x_min:
-                self._x_min = float(np.min([np.min(x) for x in xs]))
+                non_empty_xs = [x for x in xs if len(x) > 0]
+                if non_empty_xs:
+                    self._x_min = float(np.min([np.min(x) for x in non_empty_xs]))
             if self._auto_x_max:
-                self._x_max = float(np.max([np.max(x) for x in xs]))
+                non_empty_xs = [x for x in xs if len(x) > 0]
+                if non_empty_xs:
+                    self._x_max = float(np.max([np.max(x) for x in non_empty_xs]))
             if self._auto_y_min:
-                self._y_min = float(np.min([np.min(y) for y in ys]))
+                non_empty_ys = [y for y in ys if len(y) > 0]
+                if non_empty_ys:
+                    self._y_min = float(np.min([np.min(y) for y in non_empty_ys]))
             if self._auto_y_max:
-                self._y_max = float(np.max([np.max(y) for y in ys]))
+                non_empty_ys = [y for y in ys if len(y) > 0]
+                if non_empty_ys:
+                    self._y_max = float(np.max([np.max(y) for y in non_empty_ys]))
 
             if self._x_min == self._x_max:
                 self._x_min -= 1e-6
