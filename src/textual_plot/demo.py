@@ -55,7 +55,9 @@ class SpectrumPlot(Container):
 
 
 class SinePlot(Container):
-    _phi: float = 0.0
+    BINDINGS = [("c", "clear", "Clear")]
+
+    N: int = 1
 
     def compose(self) -> ComposeResult:
         yield PlotWidget()
@@ -69,46 +71,40 @@ class SinePlot(Container):
     def on_hide(self) -> None:
         self._timer.pause()
 
+    def action_clear(self) -> None:
+        self.N = 1
+
     def plot_moving_sines(self) -> None:
         plot = self.query_one(PlotWidget)
         plot.clear()
-        x = np.linspace(0, 10, 41)
-        y = x**2 / 3.5
-        plot.scatter(
-            x,
-            y,
-            marker_style="blue",
-            # marker="*",
-            hires_mode=HiResMode.QUADRANT,
-        )
-        x = np.linspace(0, 10, 200)
+        x = np.arange(0, self.N * 0.1, 0.1)
         plot.plot(
             x=x,
-            y=10 + 10 * np.sin(x + self._phi),
+            y=10 + 10 * np.sin(x),
             line_style="blue",
             hires_mode=None,
         )
 
         plot.plot(
             x=x,
-            y=10 + 10 * np.sin(x + self._phi + 1),
+            y=10 + 10 * np.sin(x + 1),
             line_style="red3",
             hires_mode=HiResMode.HALFBLOCK,
         )
         plot.plot(
             x=x,
-            y=10 + 10 * np.sin(x + self._phi + 2),
+            y=10 + 10 * np.sin(x + 2),
             line_style="green",
             hires_mode=HiResMode.QUADRANT,
         )
         plot.plot(
             x=x,
-            y=10 + 10 * np.sin(x + self._phi + 3),
+            y=10 + 10 * np.sin(x + 3),
             line_style="yellow",
             hires_mode=HiResMode.BRAILLE,
         )
-
-        self._phi += 0.1
+        plot.set_ylimits(0, 20)
+        self.N += 1
 
 
 class MultiPlot(Grid):
