@@ -84,6 +84,12 @@ class ScatterPlot(DataSet):
     marker_style: str
 
 
+@dataclass
+class VLinePlot:
+    x: float
+    line_style: str
+
+
 class Legend(Static):
     """A legend widget for the PlotWidget."""
 
@@ -167,7 +173,7 @@ class PlotWidget(Widget, can_focus=True):
     margin_left = reactive(10)
 
     _datasets: list[DataSet]
-    _labels: list[str]
+    _labels: list[str | None]
 
     _user_x_min: float | None = None
     _user_x_max: float | None = None
@@ -226,6 +232,8 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._datasets = []
         self._labels = []
+        self._v_lines: list[VLinePlot] = []
+        self._v_lines_labels: list[str | None] = []
         self._allow_pan_and_zoom = allow_pan_and_zoom
         self.invert_mouse_wheel = invert_mouse_wheel
 
@@ -277,6 +285,8 @@ class PlotWidget(Widget, can_focus=True):
         """Clear the plot canvas."""
         self._datasets = []
         self._labels = []
+        self._v_lines = []
+        self._v_lines_labels = []
         self.refresh(layout=True)
 
     def plot(
@@ -311,7 +321,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
-        self._labels.append(label or "")
+        self._labels.append(label)
         self.refresh(layout=True)
 
     def scatter(
@@ -350,6 +360,20 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label or "")
+        self.refresh(layout=True)
+
+    def add_v_line(
+        self, x: float, line_style: str = "white", label: str | None = None
+    ) -> None:
+        """Draw a vertical line on the plot.
+
+        Args:
+            x: The x-coordinate where the vertical line will be placed.
+            line_style: A string with the style of the line. Defaults to "white".
+            label: A string with the label for the line. Defaults to None.
+        """
+        self._v_lines.append(VLinePlot(x=x, line_style=line_style))
+        self._v_lines_labels.append(label)
         self.refresh(layout=True)
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
@@ -466,6 +490,16 @@ class PlotWidget(Widget, can_focus=True):
                 text.stylize(style)
                 text.append(f" {label}")
                 legend_lines.append(text.markup)
+
+        for label, vline in zip(self._v_lines_labels, self._v_lines):
+            if label is not None:
+                marker = "│".center(3)
+                style = vline.line_style
+                text = Text(marker)
+                text.stylize(style)
+                text.append(f" {label}")
+                legend_lines.append(text.markup)
+
         self.query_one("#legend", Static).update(
             Text.from_markup("\n".join(legend_lines))
         )
@@ -570,8 +604,10 @@ class PlotWidget(Widget, can_focus=True):
         canvas.reset()
 
         # determine axis limits
-        if self._datasets:
+        if self._datasets or self._v_lines:
             xs = [dataset.x for dataset in self._datasets]
+            if self._v_lines:
+                xs.append(np.array([vline.x for vline in self._v_lines]))
             ys = [dataset.y for dataset in self._datasets]
             if self._auto_x_min:
                 non_empty_xs = [x for x in xs if len(x) > 0]
@@ -603,6 +639,10 @@ class PlotWidget(Widget, can_focus=True):
                 self._render_scatter_plot(dataset)
             elif isinstance(dataset, LinePlot):
                 self._render_line_plot(dataset)
+
+        # render vlines
+        for vline in self._v_lines:
+            self._render_v_line_plot(vline)
 
         # render axis, ticks and labels
         canvas.draw_rectangle_box(
@@ -660,6 +700,14 @@ class PlotWidget(Widget, can_focus=True):
             ]
             for i in range(1, len(pixels)):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
+
+    def _render_v_line_plot(self, vline: VLinePlot) -> None:
+        canvas = self.query_one("#plot", Canvas)
+        start = self.get_pixel_from_coordinate(vline.x, self._y_min)
+        end = self.get_pixel_from_coordinate(vline.x, self._y_max)
+        canvas.draw_line(
+            start[0], start[1], end[0], end[1], style=vline.line_style, char="│"
+        )
 
     def _render_x_ticks(self) -> None:
         canvas = self.query_one("#plot", Canvas)

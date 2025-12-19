@@ -46,8 +46,10 @@ class SpectrumPlot(Container):
         plot = self.query_one(PlotWidget)
         plot.clear()
         plot.plot(x, y, hires_mode=self.mode)
+        plot.add_v_line(589, "blue", "Sodium line")
         plot.set_xlabel("Wavelength (nm)")
         plot.set_ylabel("Intensity")
+        plot.show_legend()
 
     def action_cycle_modes(self) -> None:
         self.mode = next(self._modes)
