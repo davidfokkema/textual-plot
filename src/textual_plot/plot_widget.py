@@ -640,10 +640,6 @@ class PlotWidget(Widget, can_focus=True):
             elif isinstance(dataset, LinePlot):
                 self._render_line_plot(dataset)
 
-        # render vlines
-        for vline in self._v_lines:
-            self._render_v_line_plot(vline)
-
         # render axis, ticks and labels
         canvas.draw_rectangle_box(
             0,
@@ -653,8 +649,13 @@ class PlotWidget(Widget, can_focus=True):
             thickness=2,
             style=str(self.get_component_rich_style("plot--axis")),
         )
+        # render vlines
+        for vline in self._v_lines:
+            self._render_v_line_plot(vline)
+        # render tick marks and labels
         self._render_x_ticks()
         self._render_y_ticks()
+        # render axis labels
         self._render_x_label()
         self._render_y_label()
 
@@ -702,11 +703,24 @@ class PlotWidget(Widget, can_focus=True):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
 
     def _render_v_line_plot(self, vline: VLinePlot) -> None:
+        """Render a vertical line on the canvas.
+
+        The vertical line is drawn from the top to the bottom of the scale
+        rectangle and is connected to the scale rectangle.
+
+        Args:
+            vline: A VLinePlot dataclass instance containing the x-coordinate
+                and line style.
+        """
         canvas = self.query_one("#plot", Canvas)
-        start = self.get_pixel_from_coordinate(vline.x, self._y_min)
-        end = self.get_pixel_from_coordinate(vline.x, self._y_max)
+        x, _ = self.get_pixel_from_coordinate(vline.x, 0)
         canvas.draw_line(
-            start[0], start[1], end[0], end[1], style=vline.line_style, char="│"
+            x, 1, x, self._scale_rectangle.bottom - 1, style=vline.line_style, char="│"
+        )
+        style = str(self.get_component_rich_style("plot--axis"))
+        canvas.set_pixel(x, 0, BOX_CHARACTERS[(0, 2, 2, 2)], style=style)
+        canvas.set_pixel(
+            x, self._scale_rectangle.bottom, BOX_CHARACTERS[(2, 2, 0, 2)], style=style
         )
 
     def _render_x_ticks(self) -> None:
