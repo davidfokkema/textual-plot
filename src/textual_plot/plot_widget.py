@@ -987,6 +987,8 @@ class PlotWidget(Widget, can_focus=True):
         for current_quad, v in BOX_CHARACTERS.items():
             if v == pixel:
                 break
+        else:
+            raise ValueError(f"Pixel '{pixel}' is not a valid box drawing character.")
         new_quad = combine_quads(current_quad, quad)
         return BOX_CHARACTERS[new_quad]
 
