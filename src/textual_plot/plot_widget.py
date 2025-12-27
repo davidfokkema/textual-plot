@@ -1,3 +1,11 @@
+"""A Textual widget for plotting data with customizable axes, legends, and multiple plot types.
+
+This module provides the PlotWidget class, which enables creation of interactive
+plots in Textual applications. It supports scatter plots and line plots, with
+features like automatic scaling, legends, high-resolution rendering and
+interactive features like zooming and panning.
+"""
+
 from __future__ import annotations
 
 import enum
@@ -68,6 +76,14 @@ class LegendLocation(enum.Enum):
 
 @dataclass
 class DataSet:
+    """Base class for plot datasets containing coordinate data and rendering mode.
+
+    Attributes:
+        x: Array of x-coordinate values for the dataset.
+        y: Array of y-coordinate values for the dataset.
+        hires_mode: High-resolution rendering mode or None for standard rendering.
+    """
+
     x: FloatArray
     y: FloatArray
     hires_mode: HiResMode | None
@@ -75,17 +91,37 @@ class DataSet:
 
 @dataclass
 class LinePlot(DataSet):
+    """A dataset for rendering as a line plot.
+
+    Attributes:
+        line_style: Rich style string for the line (e.g., "white", "bold red").
+    """
+
     line_style: str
 
 
 @dataclass
 class ScatterPlot(DataSet):
+    """A dataset for rendering as a scatter plot.
+
+    Attributes:
+        marker: Character to use as the marker (e.g., "o", "*", "+").
+        marker_style: Rich style string for the markers (e.g., "white", "bold blue").
+    """
+
     marker: str
     marker_style: str
 
 
 @dataclass
 class VLinePlot:
+    """A vertical line to be drawn on the plot.
+
+    Attributes:
+        x: X-coordinate where the vertical line is positioned.
+        line_style: Rich style string for the line (e.g., "white", "dashed red").
+    """
+
     x: float
     line_style: str
 
@@ -114,6 +150,16 @@ class PlotWidget(Widget, can_focus=True):
 
     @dataclass
     class ScaleChanged(Message):
+        """Message posted when the plot scale (axis limits) changes.
+
+        Attributes:
+            plot: The PlotWidget instance that posted the message.
+            x_min: Minimum value of the x-axis after the change.
+            x_max: Maximum value of the x-axis after the change.
+            y_min: Minimum value of the y-axis after the change.
+            y_max: Maximum value of the y-axis after the change.
+        """
+
         plot: "PlotWidget"
         x_min: float
         x_max: float
@@ -238,6 +284,11 @@ class PlotWidget(Widget, can_focus=True):
         self.invert_mouse_wheel = invert_mouse_wheel
 
     def compose(self) -> ComposeResult:
+        """Compose the child widgets of the PlotWidget.
+
+        Returns:
+            An iterable of child widgets including the plot canvas, margins, and legend.
+        """
         with Grid():
             yield Canvas(1, 1, id="margin-top")
             yield Canvas(1, 1, id="margin-left")
@@ -246,6 +297,7 @@ class PlotWidget(Widget, can_focus=True):
         yield Legend(id="legend")
 
     def on_mount(self) -> None:
+        """Initialize the plot widget when mounted to the DOM."""
         self._update_margin_sizes()
         self.set_xlimits(None, None)
         self.set_ylimits(None, None)
@@ -254,9 +306,15 @@ class PlotWidget(Widget, can_focus=True):
     @on(Focus)
     @on(Blur)
     def rerender(self) -> None:
+        """Rerender the plot when focus changes."""
         self.refresh(layout=True)
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
+        """Handle canvas resize events to update the plot scale rectangle.
+
+        Args:
+            event: The canvas resize event containing the new size.
+        """
         if event.canvas.id == "plot":
             # The scale rectangle falls just inside the axis rectangle
             self._scale_rectangle = Region(
@@ -267,12 +325,15 @@ class PlotWidget(Widget, can_focus=True):
         self.refresh(layout=True)
 
     def watch_margin_top(self) -> None:
+        """React to changes in the top margin reactive attribute."""
         self._update_margin_sizes()
 
     def watch_margin_bottom(self) -> None:
+        """React to changes in the bottom margin reactive attribute."""
         self._update_margin_sizes()
 
     def watch_margin_left(self) -> None:
+        """React to changes in the left margin reactive attribute."""
         self._update_margin_sizes()
 
     def _update_margin_sizes(self) -> None:
@@ -579,7 +640,17 @@ class PlotWidget(Widget, can_focus=True):
         layout: bool = False,
         recompose: bool = False,
     ) -> Self:
-        """Refresh the widget."""
+        """Refresh the widget.
+
+        Args:
+            regions: Specific regions to refresh.
+            repaint: Whether to repaint the widget. Defaults to True.
+            layout: Whether to refresh the layout. Defaults to False.
+            recompose: Whether to recompose the widget. Defaults to False.
+
+        Returns:
+            The widget instance for method chaining.
+        """
         if layout is True:
             self._needs_rerender = True
         return super().refresh(
@@ -587,12 +658,18 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def render(self) -> RenderResult:
+        """Render the plot widget.
+
+        Returns:
+            An empty string as rendering is done on canvases.
+        """
         if self._needs_rerender:
             self._needs_rerender = False
             self._render_plot()
         return ""
 
     def _render_plot(self) -> None:
+        """Render all plot elements including datasets, axes, ticks, and labels."""
         try:
             if (canvas := self.query_one("#plot", Canvas))._canvas_size is None:
                 return
@@ -660,6 +737,11 @@ class PlotWidget(Widget, can_focus=True):
         self._render_y_label()
 
     def _render_scatter_plot(self, dataset: ScatterPlot) -> None:
+        """Render a scatter plot dataset on the canvas.
+
+        Args:
+            dataset: The scatter plot dataset to render.
+        """
         canvas = self.query_one("#plot", Canvas)
         if dataset.hires_mode:
             hires_pixels = [
@@ -680,6 +762,11 @@ class PlotWidget(Widget, can_focus=True):
                 )
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
+        """Render a line plot dataset on the canvas.
+
+        Args:
+            dataset: The line plot dataset to render.
+        """
         canvas = self.query_one("#plot", Canvas)
 
         if dataset.hires_mode:
@@ -724,6 +811,7 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _render_x_ticks(self) -> None:
+        """Render tick marks and labels for the x-axis."""
         canvas = self.query_one("#plot", Canvas)
         bottom_margin = self.query_one("#margin-bottom", Canvas)
         bottom_margin.reset()
@@ -764,6 +852,7 @@ class PlotWidget(Widget, can_focus=True):
             )
 
     def _render_y_ticks(self) -> None:
+        """Render tick marks and labels for the y-axis."""
         canvas = self.query_one("#plot", Canvas)
         left_margin = self.query_one("#margin-left", Canvas)
         left_margin.reset()
@@ -804,6 +893,7 @@ class PlotWidget(Widget, can_focus=True):
             )
 
     def _render_x_label(self) -> None:
+        """Render the x-axis label."""
         canvas = self.query_one("#plot", Canvas)
         margin = self.query_one("#margin-bottom", Canvas)
         margin.write_text(
@@ -814,6 +904,7 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _render_y_label(self) -> None:
+        """Render the y-axis label."""
         margin = self.query_one("#margin-top", Canvas)
         margin.write_text(
             self.margin_left - 2,
@@ -825,6 +916,16 @@ class PlotWidget(Widget, can_focus=True):
     def get_ticks_between(
         self, min_: float, max_: float, max_ticks: int = 8
     ) -> tuple[list[float], list[str]]:
+        """Generate tick values and labels at nice intervals (1, 2, 5, 10, etc.).
+
+        Args:
+            min_: Minimum value of the range.
+            max_: Maximum value of the range.
+            max_ticks: Maximum number of ticks to generate. Defaults to 8.
+
+        Returns:
+            A tuple containing a list of tick values and a list of formatted tick labels.
+        """
         delta_x = max_ - min_
         tick_spacing = delta_x / 5
         power = floor(log10(tick_spacing))
@@ -871,6 +972,17 @@ class PlotWidget(Widget, can_focus=True):
     def combine_quad_with_pixel(
         self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int
     ) -> str:
+        """Combine a box-drawing quad with an existing pixel to create seamless connections.
+
+        Args:
+            quad: A tuple of 4 integers representing box drawing directions (top, right, bottom, left).
+            canvas: The canvas containing the pixel.
+            x: X-coordinate of the pixel.
+            y: Y-coordinate of the pixel.
+
+        Returns:
+            A box-drawing character that combines both quads.
+        """
         pixel = canvas.get_pixel(x, y)[0]
         for current_quad, v in BOX_CHARACTERS.items():
             if v == pixel:
@@ -881,6 +993,15 @@ class PlotWidget(Widget, can_focus=True):
     def get_pixel_from_coordinate(
         self, x: FloatScalar, y: FloatScalar
     ) -> tuple[int, int]:
+        """Convert data coordinates to canvas pixel coordinates.
+
+        Args:
+            x: X-coordinate in data space.
+            y: Y-coordinate in data space.
+
+        Returns:
+            A tuple of (x, y) pixel coordinates on the canvas.
+        """
         return map_coordinate_to_pixel(
             x,
             y,
@@ -894,6 +1015,15 @@ class PlotWidget(Widget, can_focus=True):
     def get_hires_pixel_from_coordinate(
         self, x: FloatScalar, y: FloatScalar
     ) -> tuple[FloatScalar, FloatScalar]:
+        """Convert data coordinates to high-resolution pixel coordinates.
+
+        Args:
+            x: X-coordinate in data space.
+            y: Y-coordinate in data space.
+
+        Returns:
+            A tuple of (x, y) high-resolution pixel coordinates with sub-character precision.
+        """
         return map_coordinate_to_hires_pixel(
             x,
             y,
@@ -905,6 +1035,15 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def get_coordinate_from_pixel(self, x: int, y: int) -> tuple[float, float]:
+        """Convert canvas pixel coordinates to data coordinates.
+
+        Args:
+            x: X-coordinate in pixel space.
+            y: Y-coordinate in pixel space.
+
+        Returns:
+            A tuple of (x, y) coordinates in data space.
+        """
         return map_pixel_to_coordinate(
             x,
             y,
@@ -916,6 +1055,12 @@ class PlotWidget(Widget, can_focus=True):
         )
 
     def _zoom(self, event: MouseScrollDown | MouseScrollUp, factor: float) -> None:
+        """Handle zoom operations centered on the mouse cursor position.
+
+        Args:
+            event: The mouse scroll event triggering the zoom.
+            factor: The zoom factor to apply (positive for zoom in, negative for zoom out).
+        """
         if not self._allow_pan_and_zoom:
             return
 
@@ -947,16 +1092,31 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
+        """Zoom into the plot when scrolling down.
+
+        Args:
+            event: The mouse scroll down event.
+        """
         event.stop()
         self._zoom(event, ZOOM_FACTOR)
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollUp) -> None:
+        """Zoom out of the plot when scrolling up.
+
+        Args:
+            event: The mouse scroll up event.
+        """
         event.stop()
         self._zoom(event, -ZOOM_FACTOR)
 
     @on(MouseDown)
     def start_dragging_legend(self, event: MouseDown) -> None:
+        """Start dragging the legend when clicked with left mouse button.
+
+        Args:
+            event: The mouse down event.
+        """
         widget, _ = self.screen.get_widget_at(event.screen_x, event.screen_y)
         if event.button == 1 and widget.id == "legend":
             self._is_dragging_legend = True
@@ -965,6 +1125,11 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseUp)
     def stop_dragging_legend(self, event: MouseUp) -> None:
+        """Stop dragging the legend when left mouse button is released.
+
+        Args:
+            event: The mouse up event.
+        """
         if event.button == 1 and self._is_dragging_legend:
             self._is_dragging_legend = False
             self.query_one("#legend").remove_class("dragged")
@@ -972,6 +1137,11 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseMove)
     def drag_with_mouse(self, event: MouseMove) -> None:
+        """Handle mouse drag operations for panning the plot or moving the legend.
+
+        Args:
+            event: The mouse move event.
+        """
         if not self._allow_pan_and_zoom:
             return
         if event.button == 0:
@@ -984,11 +1154,21 @@ class PlotWidget(Widget, can_focus=True):
             self._pan_plot(event)
 
     def _drag_legend(self, event: MouseMove) -> None:
+        """Update legend position while dragging.
+
+        Args:
+            event: The mouse move event with drag delta information.
+        """
         self._legend_relative_offset += event.delta
         self._position_legend()
         self.query_one("#legend").refresh(layout=True)
 
     def _pan_plot(self, event: MouseMove) -> None:
+        """Pan the plot by adjusting axis limits based on mouse movement.
+
+        Args:
+            event: The mouse move event with drag delta information.
+        """
         x1, y1 = self.get_coordinate_from_pixel(1, 1)
         x2, y2 = self.get_coordinate_from_pixel(2, 2)
         dx, dy = x2 - x1, y1 - y2
@@ -1010,6 +1190,7 @@ class PlotWidget(Widget, can_focus=True):
         self.refresh(layout=True)
 
     def action_reset_scales(self) -> None:
+        """Reset the plot scales to the user-defined or auto-scaled limits."""
         self.set_xlimits(self._user_x_min, self._user_x_max)
         self.set_ylimits(self._user_y_min, self._user_y_max)
         self.post_message(
@@ -1027,6 +1208,20 @@ def map_coordinate_to_pixel(
     ymax: float,
     region: Region,
 ) -> tuple[int, int]:
+    """Map data coordinates to integer pixel coordinates within a region.
+
+    Args:
+        x: X-coordinate in data space.
+        y: Y-coordinate in data space.
+        xmin: Minimum x value in data space.
+        xmax: Maximum x value in data space.
+        ymin: Minimum y value in data space.
+        ymax: Maximum y value in data space.
+        region: The region defining the pixel space bounds.
+
+    Returns:
+        A tuple of (x, y) integer pixel coordinates.
+    """
     x = floor(linear_mapper(x, xmin, xmax, region.x, region.right))
     # positive y direction is reversed
     y = ceil(linear_mapper(y, ymin, ymax, region.bottom - 1, region.y - 1))
@@ -1042,6 +1237,20 @@ def map_coordinate_to_hires_pixel(
     ymax: float,
     region: Region,
 ) -> tuple[FloatScalar, FloatScalar]:
+    """Map data coordinates to floating-point high-resolution pixel coordinates.
+
+    Args:
+        x: X-coordinate in data space.
+        y: Y-coordinate in data space.
+        xmin: Minimum x value in data space.
+        xmax: Maximum x value in data space.
+        ymin: Minimum y value in data space.
+        ymax: Maximum y value in data space.
+        region: The region defining the pixel space bounds.
+
+    Returns:
+        A tuple of (x, y) floating-point pixel coordinates with sub-character precision.
+    """
     x = linear_mapper(x, xmin, xmax, region.x, region.right)
     # positive y direction is reversed
     y = linear_mapper(y, ymin, ymax, region.bottom, region.y)
@@ -1057,6 +1266,23 @@ def map_pixel_to_coordinate(
     ymax: float,
     region: Region,
 ) -> tuple[float, float]:
+    """Map pixel coordinates to data coordinates within a region.
+
+    This method takes the center of the pixel into account by adding 0.5
+    to the pixel coordinates before mapping.
+
+    Args:
+        px: X-coordinate in pixel space.
+        py: Y-coordinate in pixel space.
+        xmin: Minimum x value in data space.
+        xmax: Maximum x value in data space.
+        ymin: Minimum y value in data space.
+        ymax: Maximum y value in data space.
+        region: The region defining the pixel space bounds.
+
+    Returns:
+        A tuple of (x, y) coordinates in data space.
+    """
     x = linear_mapper(px + 0.5, region.x, region.right, xmin, xmax)
     # positive y direction is reversed
     y = linear_mapper(py + 0.5, region.bottom, region.y, ymin, ymax)
@@ -1070,6 +1296,18 @@ def linear_mapper(
     a_prime: float | int,
     b_prime: float | int,
 ) -> FloatScalar:
+    """Perform linear mapping from range [a, b] to range [a_prime, b_prime].
+
+    Args:
+        x: The value to map from the source range.
+        a: Start of the source range.
+        b: End of the source range.
+        a_prime: Start of the destination range.
+        b_prime: End of the destination range.
+
+    Returns:
+        The mapped value in the destination range.
+    """
     return a_prime + (x - a) * (b_prime - a_prime) / (b - a)
 
 
