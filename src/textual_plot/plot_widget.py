@@ -420,7 +420,7 @@ class PlotWidget(Widget, can_focus=True):
                 hires_mode=hires_mode,
             )
         )
-        self._labels.append(label or "")
+        self._labels.append(label)
         self.refresh(layout=True)
 
     def add_v_line(
@@ -612,9 +612,12 @@ class PlotWidget(Widget, can_focus=True):
         canvas = self.query_one("#plot", Canvas)
         legend = self.query_one("#legend", Static)
 
-        labels = [label for label in self._labels if label is not None]
+        # Collect all labels that will appear in the legend
+        all_labels = [label for label in self._labels if label is not None]
+        all_labels.extend([label for label in self._v_lines_labels if label is not None])
+        
         # markers and lines in the legend are 3 characters wide, plus a space, so 4
-        max_length = 4 + max((len(s) for s in labels), default=0)
+        max_length = 4 + max((len(s) for s in all_labels), default=0)
 
         if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             x0 = self.margin_left + 1
@@ -627,8 +630,8 @@ class PlotWidget(Widget, can_focus=True):
         if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
             y0 = self.margin_top + 1
         else:
-            # LegendLocation is TOPRIGHT or BOTTOMRIGHT
-            y0 = self.margin_top + canvas.size.height - 1 - len(labels)
+            # LegendLocation is BOTTOMLEFT or BOTTOMRIGHT
+            y0 = self.margin_top + canvas.size.height - 1 - len(all_labels)
             # leave room for the border
             y0 -= legend.styles.border.spacing.top + legend.styles.border.spacing.bottom
         return Offset(x0, y0)
