@@ -43,6 +43,8 @@ from textual.widget import Widget
 from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
+from textual_plot.axis_formatter import AxisFormatter, NumericAxisFormatter
+
 __all__ = ["HiResMode", "LegendLocation", "PlotWidget"]
 
 FloatScalar: TypeAlias = float | np.floating
@@ -236,6 +238,8 @@ class PlotWidget(Widget, can_focus=True):
 
     _x_ticks: Sequence[float] | None = None
     _y_ticks: Sequence[float] | None = None
+    _x_formatter: AxisFormatter
+    _y_formatter: AxisFormatter
 
     _scale_rectangle: Region = Region(0, 0, 0, 0)
     _legend_location: LegendLocation = LegendLocation.TOPRIGHT
@@ -282,6 +286,8 @@ class PlotWidget(Widget, can_focus=True):
         self._v_lines_labels: list[str | None] = []
         self._allow_pan_and_zoom = allow_pan_and_zoom
         self.invert_mouse_wheel = invert_mouse_wheel
+        self._x_formatter = NumericAxisFormatter()
+        self._y_formatter = NumericAxisFormatter()
 
     def compose(self) -> ComposeResult:
         """Compose the child widgets of the PlotWidget.
@@ -506,6 +512,22 @@ class PlotWidget(Widget, can_focus=True):
             ticks: An iterable with the tick values.
         """
         self._y_ticks = ticks
+
+    def set_x_formatter(self, formatter: AxisFormatter) -> None:
+        """Set the formatter for the x axis.
+
+        Args:
+            formatter: An AxisFormatter instance to use for formatting x-axis ticks.
+        """
+        self._x_formatter = formatter
+
+    def set_y_formatter(self, formatter: AxisFormatter) -> None:
+        """Set the formatter for the y axis.
+
+        Args:
+            formatter: An AxisFormatter instance to use for formatting y-axis ticks.
+        """
+        self._y_formatter = formatter
 
     def show_legend(
         self,
@@ -821,10 +843,12 @@ class PlotWidget(Widget, can_focus=True):
 
         x_ticks: Sequence[float]
         if self._x_ticks is None:
-            x_ticks, x_labels = self.get_ticks_between(self._x_min, self._x_max)
+            x_ticks, x_labels = self._x_formatter.get_ticks_and_labels(
+                self._x_min, self._x_max
+            )
         else:
             x_ticks = self._x_ticks
-            x_labels = self.get_labels_for_ticks(x_ticks)
+            x_labels = self._x_formatter.get_labels_for_ticks(x_ticks)
         for tick, label in zip(x_ticks, x_labels):
             if tick < self._x_min or tick > self._x_max:
                 continue
@@ -862,10 +886,12 @@ class PlotWidget(Widget, can_focus=True):
 
         y_ticks: Sequence[float]
         if self._y_ticks is None:
-            y_ticks, y_labels = self.get_ticks_between(self._y_min, self._y_max)
+            y_ticks, y_labels = self._y_formatter.get_ticks_and_labels(
+                self._y_min, self._y_max
+            )
         else:
             y_ticks = self._y_ticks
-            y_labels = self.get_labels_for_ticks(y_ticks)
+            y_labels = self._y_formatter.get_labels_for_ticks(y_ticks)
         # truncate y-labels to the left margin width
         y_labels = [label[: self.margin_left - 1] for label in y_labels]
         align = TextAlign.RIGHT
@@ -921,6 +947,10 @@ class PlotWidget(Widget, can_focus=True):
     ) -> tuple[list[float], list[str]]:
         """Generate tick values and labels at nice intervals (1, 2, 5, 10, etc.).
 
+        .. deprecated::
+            Use the x or y axis formatter's `get_ticks_and_labels` method instead.
+            This method is kept for backward compatibility.
+
         Args:
             min_: Minimum value of the range.
             max_: Maximum value of the range.
@@ -929,30 +959,16 @@ class PlotWidget(Widget, can_focus=True):
         Returns:
             A tuple containing a list of tick values and a list of formatted tick labels.
         """
-        delta_x = max_ - min_
-        tick_spacing = delta_x / 5
-        power = floor(log10(tick_spacing))
-        approx_interval = tick_spacing / 10**power
-        intervals = np.array([1.0, 2.0, 5.0, 10.0])
-
-        idx = intervals.searchsorted(approx_interval)
-        interval = (intervals[idx - 1] if idx > 0 else intervals[0]) * 10**power
-        if delta_x // interval > max_ticks:
-            interval = intervals[idx] * 10**power
-        ticks = [
-            float(t)
-            for t in np.arange(
-                ceil(min_ / interval) * interval, max_ + interval / 2, interval
-            )
-        ]
-        decimals = -min(0, power)
-        tick_labels = self.get_labels_for_ticks(ticks, decimals)
-        return ticks, tick_labels
+        return self._x_formatter.get_ticks_and_labels(min_, max_, max_ticks)
 
     def get_labels_for_ticks(
         self, ticks: Sequence[float], decimals: int | None = None
     ) -> list[str]:
         """Generate formatted labels for given tick values.
+
+        .. deprecated::
+            Use the x or y axis formatter's `get_labels_for_ticks` method instead.
+            This method is kept for backward compatibility.
 
         Args:
             ticks: A list of tick values to be formatted.
@@ -961,16 +977,7 @@ class PlotWidget(Widget, can_focus=True):
         Returns:
             A list of formatted tick labels as strings.
         """
-        if not ticks:
-            return []
-        if decimals is None:
-            if len(ticks) >= 2:
-                power = floor(log10(ticks[1] - ticks[0]))
-            else:
-                power = 0
-            decimals = -min(0, power)
-        tick_labels = [f"{tick:.{decimals}f}" for tick in ticks]
-        return tick_labels
+        return self._x_formatter.get_labels_for_ticks(ticks, decimals)
 
     def combine_quad_with_pixel(
         self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int
