@@ -22,10 +22,40 @@ class AxisFormatter(ABC):
     """
 
     @abstractmethod
+    def get_ticks(
+        self, min_: float, max_: float, max_ticks: int = 8
+    ) -> list[float]:
+        """Generate tick positions.
+
+        Args:
+            min_: Minimum value of the axis range.
+            max_: Maximum value of the axis range.
+            max_ticks: Maximum number of ticks to generate. Defaults to 8.
+
+        Returns:
+            A list of tick positions (as floats).
+        """
+        pass
+
+    @abstractmethod
+    def get_labels_for_ticks(self, ticks: Sequence[float]) -> list[str]:
+        """Generate formatted labels for given tick positions.
+
+        Args:
+            ticks: A sequence of tick positions to be formatted.
+
+        Returns:
+            A list of formatted tick labels as strings.
+        """
+        pass
+
     def get_ticks_and_labels(
         self, min_: float, max_: float, max_ticks: int = 8
     ) -> tuple[list[float], list[str]]:
         """Generate tick positions and their corresponding labels.
+
+        This is a convenience method that calls get_ticks() followed by
+        get_labels_for_ticks().
 
         Args:
             min_: Minimum value of the axis range.
@@ -37,22 +67,9 @@ class AxisFormatter(ABC):
                 - A list of tick positions (as floats)
                 - A list of formatted tick labels (as strings)
         """
-        pass
-
-    @abstractmethod
-    def get_labels_for_ticks(
-        self, ticks: Sequence[float], decimals: int | None = None
-    ) -> list[str]:
-        """Generate formatted labels for given tick positions.
-
-        Args:
-            ticks: A sequence of tick positions to be formatted.
-            decimals: Optional number of decimal places for formatting.
-
-        Returns:
-            A list of formatted tick labels as strings.
-        """
-        pass
+        ticks = self.get_ticks(min_, max_, max_ticks)
+        labels = self.get_labels_for_ticks(ticks)
+        return ticks, labels
 
 
 class NumericAxisFormatter(AxisFormatter):
@@ -62,10 +79,10 @@ class NumericAxisFormatter(AxisFormatter):
     100, etc., which are visually pleasing and easy to read.
     """
 
-    def get_ticks_and_labels(
+    def get_ticks(
         self, min_: float, max_: float, max_ticks: int = 8
-    ) -> tuple[list[float], list[str]]:
-        """Generate tick values and labels at nice intervals (1, 2, 5, 10, etc.).
+    ) -> list[float]:
+        """Generate tick values at nice intervals (1, 2, 5, 10, etc.).
 
         Args:
             min_: Minimum value of the range.
@@ -73,7 +90,7 @@ class NumericAxisFormatter(AxisFormatter):
             max_ticks: Maximum number of ticks to generate. Defaults to 8.
 
         Returns:
-            A tuple containing a list of tick values and a list of formatted tick labels.
+            A list of tick values.
         """
         delta_x = max_ - min_
         tick_spacing = delta_x / 5
@@ -91,30 +108,26 @@ class NumericAxisFormatter(AxisFormatter):
                 ceil(min_ / interval) * interval, max_ + interval / 2, interval
             )
         ]
-        decimals = -min(0, power)
-        tick_labels = self.get_labels_for_ticks(ticks, decimals)
-        return ticks, tick_labels
+        return ticks
 
-    def get_labels_for_ticks(
-        self, ticks: Sequence[float], decimals: int | None = None
-    ) -> list[str]:
+    def get_labels_for_ticks(self, ticks: Sequence[float]) -> list[str]:
         """Generate formatted labels for given tick values.
+
+        The number of decimal places is automatically determined from the tick spacing.
 
         Args:
             ticks: A list of tick values to be formatted.
-            decimals: The number of decimal places for formatting the tick values.
-                If None, it will be automatically determined from the tick spacing.
 
         Returns:
             A list of formatted tick labels as strings.
         """
         if not ticks:
             return []
-        if decimals is None:
-            if len(ticks) >= 2:
-                power = floor(log10(ticks[1] - ticks[0]))
-            else:
-                power = 0
-            decimals = -min(0, power)
+        # Automatically determine decimals from tick spacing
+        if len(ticks) >= 2:
+            power = floor(log10(ticks[1] - ticks[0]))
+        else:
+            power = 0
+        decimals = -min(0, power)
         tick_labels = [f"{tick:.{decimals}f}" for tick in ticks]
         return tick_labels

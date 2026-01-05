@@ -636,8 +636,10 @@ class PlotWidget(Widget, can_focus=True):
 
         # Collect all labels that will appear in the legend
         all_labels = [label for label in self._labels if label is not None]
-        all_labels.extend([label for label in self._v_lines_labels if label is not None])
-        
+        all_labels.extend(
+            [label for label in self._v_lines_labels if label is not None]
+        )
+
         # markers and lines in the legend are 3 characters wide, plus a space, so 4
         max_length = 4 + max((len(s) for s in all_labels), default=0)
 
@@ -941,43 +943,6 @@ class PlotWidget(Widget, can_focus=True):
             f"[{self.get_component_rich_style('plot--label')}]{self._y_label}",
             TextAlign.CENTER,
         )
-
-    def get_ticks_between(
-        self, min_: float, max_: float, max_ticks: int = 8
-    ) -> tuple[list[float], list[str]]:
-        """Generate tick values and labels at nice intervals (1, 2, 5, 10, etc.).
-
-        .. deprecated::
-            Use the x or y axis formatter's `get_ticks_and_labels` method instead.
-            This method is kept for backward compatibility.
-
-        Args:
-            min_: Minimum value of the range.
-            max_: Maximum value of the range.
-            max_ticks: Maximum number of ticks to generate. Defaults to 8.
-
-        Returns:
-            A tuple containing a list of tick values and a list of formatted tick labels.
-        """
-        return self._x_formatter.get_ticks_and_labels(min_, max_, max_ticks)
-
-    def get_labels_for_ticks(
-        self, ticks: Sequence[float], decimals: int | None = None
-    ) -> list[str]:
-        """Generate formatted labels for given tick values.
-
-        .. deprecated::
-            Use the x or y axis formatter's `get_labels_for_ticks` method instead.
-            This method is kept for backward compatibility.
-
-        Args:
-            ticks: A list of tick values to be formatted.
-            decimals: The number of decimal places for formatting the tick values.
-
-        Returns:
-            A list of formatted tick labels as strings.
-        """
-        return self._x_formatter.get_labels_for_ticks(ticks, decimals)
 
     def combine_quad_with_pixel(
         self, quad: tuple[int, int, int, int], canvas: Canvas, x: int, y: int
