@@ -11,7 +11,7 @@ from textual.containers import Container, Grid
 from textual.widgets import Footer, Header, Label, TabbedContent, TabPane
 from textual_hires_canvas import HiResMode
 
-from textual_plot import PlotWidget
+from textual_plot import DurationFormatter, NumericAxisFormatter, PlotWidget
 
 
 class SpectrumPlot(Container):
@@ -58,15 +58,31 @@ class SpectrumPlot(Container):
 
 
 class SinePlot(Container):
-    BINDINGS = [("c", "clear", "Clear")]
+    BINDINGS = [
+        ("c", "clear", "Clear"),
+        ("f", "toggle_formatter", "Toggle Formatter"),
+        ("m", "cycle_multiplier", "Cycle Multiplier"),
+    ]
+
+    # Update frequency in Hz (updates per second)
+    UPDATE_FREQUENCY: float = 24.0
 
     N: int = 1
+    use_duration_formatter: bool = False
+
+    # Available multipliers
+    _multipliers = itertools.cycle([1, 10, 100, 1000, 10_000, 100_000])
+    x_multiplier: float = next(_multipliers)
 
     def compose(self) -> ComposeResult:
         yield PlotWidget()
 
     def on_mount(self) -> None:
-        self._timer = self.set_interval(1 / 24, self.plot_moving_sines, pause=True)
+        self._timer = self.set_interval(
+            1 / self.UPDATE_FREQUENCY, self.plot_moving_sines, pause=True
+        )
+        # Set initial x-axis label
+        self._update_x_label()
 
     def on_show(self) -> None:
         self._timer.resume()
@@ -77,30 +93,68 @@ class SinePlot(Container):
     def action_clear(self) -> None:
         self.N = 1
 
+    def action_toggle_formatter(self) -> None:
+        """Toggle between NumericAxisFormatter and DurationFormatter."""
+        self.use_duration_formatter = not self.use_duration_formatter
+        plot = self.query_one(PlotWidget)
+
+        if self.use_duration_formatter:
+            plot.set_x_formatter(DurationFormatter())
+        else:
+            plot.set_x_formatter(NumericAxisFormatter())
+
+        # Update x-axis label
+        self._update_x_label()
+
+        # Force a replot with current data
+        self.plot_moving_sines()
+
+    def action_cycle_multiplier(self) -> None:
+        """Cycle through different multipliers."""
+        self.x_multiplier = next(self._multipliers)
+
+        # Update x-axis label
+        self._update_x_label()
+
+        # Force a replot with current data
+        self.plot_moving_sines()
+
+    def _update_x_label(self) -> None:
+        """Update the x-axis label with formatter name and multiplier."""
+        plot = self.query_one(PlotWidget)
+        formatter_name = plot._x_formatter.__class__.__name__
+        plot.set_xlabel(f"{formatter_name} (multiplier: {self.x_multiplier})")
+
     def plot_moving_sines(self) -> None:
         plot = self.query_one(PlotWidget)
         plot.clear()
-        x = np.arange(0, self.N * 0.1, 0.1)
+
+        # Generate x values: after N updates at UPDATE_FREQUENCY Hz,
+        # we have N data points spanning N/UPDATE_FREQUENCY seconds
+        # So x ranges from 0 to N/UPDATE_FREQUENCY with N points
+        x = np.linspace(0, self.N / self.UPDATE_FREQUENCY, self.N + 1)
+        x_plot = x * self.x_multiplier
+
         plot.plot(
-            x=x,
+            x=x_plot,
             y=10 + 10 * np.sin(x + 3),
             line_style="yellow",
             hires_mode=HiResMode.BRAILLE,
         )
         plot.plot(
-            x=x,
+            x=x_plot,
             y=10 + 10 * np.sin(x + 2),
             line_style="green",
             hires_mode=HiResMode.QUADRANT,
         )
         plot.plot(
-            x=x,
+            x=x_plot,
             y=10 + 10 * np.sin(x + 1),
             line_style="red3",
             hires_mode=HiResMode.HALFBLOCK,
         )
         plot.plot(
-            x=x,
+            x=x_plot,
             y=10 + 10 * np.sin(x),
             line_style="blue",
             hires_mode=None,
@@ -123,10 +177,6 @@ class MultiPlot(Grid):
                 text-style: bold;
                 padding: 1 2 0 2;
                 width: 100%;
-            }
-
-            PlotWidget {
-      
             }
         }
     """
@@ -182,6 +232,13 @@ class MultiPlot(Grid):
 
 class DemoApp(App[None]):
     AUTO_FOCUS = "SinePlot > PlotWidget"
+
+    CSS = """
+        PlotWidget {
+            margin-right: 2;
+            margin-bottom: 1;
+        }
+    """
 
     def compose(self) -> ComposeResult:
         yield Header()
