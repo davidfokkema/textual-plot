@@ -28,8 +28,6 @@ from textual.app import ComposeResult, RenderResult
 from textual.containers import Grid
 from textual.css.query import NoMatches
 from textual.events import (
-    Blur,
-    Focus,
     MouseDown,
     MouseMove,
     MouseScrollDown,
@@ -309,10 +307,8 @@ class PlotWidget(Widget, can_focus=True):
         self.set_ylimits(None, None)
         self.clear()
 
-    @on(Focus)
-    @on(Blur)
-    def rerender(self) -> None:
-        """Rerender the plot when focus changes."""
+    def notify_style_update(self) -> None:
+        """Called when styles update (e.g., theme change). Rerender the plot."""
         self.refresh(layout=True)
 
     def _on_canvas_resize(self, event: Canvas.Resize) -> None:
