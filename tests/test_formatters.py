@@ -56,9 +56,7 @@ class TestNumericAxisFormatter:
         # With spacing of 0.05, decimals should be 2
         assert labels == ["0.00", "0.05", "0.10", "0.15", "0.20"]
 
-    def test_get_labels_for_empty_ticks(
-        self, numeric_formatter: NumericAxisFormatter
-    ):
+    def test_get_labels_for_empty_ticks(self, numeric_formatter: NumericAxisFormatter):
         labels = numeric_formatter.get_labels_for_ticks([])
         assert labels == []
 

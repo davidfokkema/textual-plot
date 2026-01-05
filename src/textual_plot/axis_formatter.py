@@ -22,9 +22,7 @@ class AxisFormatter(ABC):
     """
 
     @abstractmethod
-    def get_ticks(
-        self, min_: float, max_: float, max_ticks: int = 8
-    ) -> list[float]:
+    def get_ticks(self, min_: float, max_: float, max_ticks: int = 8) -> list[float]:
         """Generate tick positions.
 
         Args:
@@ -79,9 +77,7 @@ class NumericAxisFormatter(AxisFormatter):
     100, etc., which are visually pleasing and easy to read.
     """
 
-    def get_ticks(
-        self, min_: float, max_: float, max_ticks: int = 8
-    ) -> list[float]:
+    def get_ticks(self, min_: float, max_: float, max_ticks: int = 8) -> list[float]:
         """Generate tick values at nice intervals (1, 2, 5, 10, etc.).
 
         Args:
