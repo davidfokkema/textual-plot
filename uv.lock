@@ -1634,16 +1634,16 @@ wheels = [
 
 [[package]]
 name = "textual-hires-canvas"
-version = "0.12.0"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "textual" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/97/bbee33822c74f43447e9f69246e208ab795af7d0911f0fc54206d84e6617/textual_hires_canvas-0.12.0.tar.gz", hash = "sha256:c30cfcddacc19bd57336cdde2892f2bc0b621df7ced08a87533da226929e9fc1", size = 1248599, upload-time = "2025-12-25T11:32:33.73Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/c0/01b57846233df7870447a644fca02dc12b46e4ea446f81cf6c6a345c83cc/textual_hires_canvas-0.13.0.tar.gz", hash = "sha256:e1753ba808bd0e1d3fff40adb1706576a7ccbe236e86c667622d079d3add9697", size = 1249495, upload-time = "2026-01-06T11:23:16.605Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/5a/3af18b7ecafbc89dcfc4cc2cf1936db51edd76e61fe3ac2b70d46cf136d8/textual_hires_canvas-0.12.0-py3-none-any.whl", hash = "sha256:2a14bdfcb83296b0aedb58e81d344cbf223ef391b87e38fce01575ffedb2324f", size = 17678, upload-time = "2025-12-25T11:32:35.28Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/91/4cdb1bbbc8446ab1109fe41ccf81b3abeae59bedecef65ab1829200150c5/textual_hires_canvas-0.13.0-py3-none-any.whl", hash = "sha256:0fa8af1d6d4e298674a08e5fffd4e4a3c2734e738134f53bf73c9cb74410951b", size = 18614, upload-time = "2026-01-06T11:23:17.689Z" },
 ]
 
 [[package]]
@@ -1671,7 +1671,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.2.1" },
     { name = "textual", specifier = ">=1.0.0" },
-    { name = "textual-hires-canvas", specifier = ">=0.12.0" },
+    { name = "textual-hires-canvas", specifier = ">=0.13.0" },
 ]
 
 [package.metadata.requires-dev]
