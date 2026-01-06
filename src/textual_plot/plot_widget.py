@@ -114,6 +114,23 @@ class ScatterPlot(DataSet):
 
 
 @dataclass
+class ErrorBarPlot(DataSet):
+    """A dataset for rendering as an error bar plot.
+
+    Attributes:
+        xerr: Array of x-direction error values (can be None for no x errors).
+        yerr: Array of y-direction error values (can be None for no y errors).
+        marker: Character to use as the marker (e.g., "o", "*", "+").
+        marker_style: Rich style string for the markers (e.g., "white", "bold blue").
+    """
+
+    xerr: FloatArray | None
+    yerr: FloatArray | None
+    marker: str
+    marker_style: str
+
+
+@dataclass
 class VLinePlot:
     """A vertical line to be drawn on the plot.
 
@@ -425,6 +442,57 @@ class PlotWidget(Widget, can_focus=True):
         self._labels.append(label)
         self.refresh(layout=True)
 
+    def errorbar(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        xerr: ArrayLike | None = None,
+        yerr: ArrayLike | None = None,
+        marker: str = "o",
+        marker_style: str = "white",
+        hires_mode: HiResMode | None = None,
+        label: str | None = None,
+    ) -> None:
+        """Graph dataset using an error bar plot.
+
+        If you supply hires_mode, the dataset will be plotted using one of the
+        available high-resolution modes like 1x2, 2x2 or 2x8 pixel-per-cell
+        characters.
+
+        Args:
+            x: An ArrayLike with the data values for the horizontal axis.
+            y: An ArrayLike with the data values for the vertical axis.
+            xerr: An ArrayLike with the error values for the horizontal axis,
+                or None for no x errors. Defaults to None.
+            yerr: An ArrayLike with the error values for the vertical axis,
+                or None for no y errors. Defaults to None.
+            marker: A string with the character to print as the marker.
+            marker_style: A string with the style of the marker. Defaults to
+                "white".
+            hires_mode: A HiResMode enum or None to plot with the supplied
+                marker. Defaults to None.
+            label: A string with the label for the dataset. Defaults to None.
+        """
+        x, y = drop_nans_and_infs(np.array(x), np.array(y))
+        
+        # Convert error arrays to numpy arrays if provided
+        xerr_array = np.array(xerr) if xerr is not None else None
+        yerr_array = np.array(yerr) if yerr is not None else None
+        
+        self._datasets.append(
+            ErrorBarPlot(
+                x=x,
+                y=y,
+                xerr=xerr_array,
+                yerr=yerr_array,
+                marker=marker,
+                marker_style=marker_style,
+                hires_mode=hires_mode,
+            )
+        )
+        self._labels.append(label)
+        self.refresh(layout=True)
+
     def add_v_line(
         self, x: float, line_style: str = "white", label: str | None = None
     ) -> None:
@@ -562,6 +630,13 @@ class PlotWidget(Widget, can_focus=True):
                 elif isinstance(dataset, LinePlot):
                     marker = LEGEND_LINE[dataset.hires_mode]
                     style = dataset.line_style
+                elif isinstance(dataset, ErrorBarPlot):
+                    marker = (
+                        dataset.marker
+                        if dataset.hires_mode is None
+                        else LEGEND_MARKER[dataset.hires_mode]
+                    ).center(3)
+                    style = dataset.marker_style
                 else:
                     # unsupported dataset type
                     continue
@@ -739,6 +814,8 @@ class PlotWidget(Widget, can_focus=True):
                 self._render_scatter_plot(dataset)
             elif isinstance(dataset, LinePlot):
                 self._render_line_plot(dataset)
+            elif isinstance(dataset, ErrorBarPlot):
+                self._render_errorbar_plot(dataset)
 
         # render axis, ticks and labels
         canvas.draw_rectangle_box(
@@ -764,6 +841,34 @@ class PlotWidget(Widget, can_focus=True):
 
         Args:
             dataset: The scatter plot dataset to render.
+        """
+        canvas = self.query_one("#plot", Canvas)
+        if dataset.hires_mode:
+            hires_pixels = [
+                self.get_hires_pixel_from_coordinate(xi, yi)
+                for xi, yi in zip(dataset.x, dataset.y)
+            ]
+            canvas.set_hires_pixels(
+                hires_pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
+            )
+        else:
+            pixels = [
+                self.get_pixel_from_coordinate(xi, yi)
+                for xi, yi in zip(dataset.x, dataset.y)
+            ]
+            for pixel in pixels:
+                canvas.set_pixel(
+                    *pixel, char=dataset.marker, style=dataset.marker_style
+                )
+
+    def _render_errorbar_plot(self, dataset: ErrorBarPlot) -> None:
+        """Render an error bar plot dataset on the canvas.
+
+        For now, this duplicates the scatter plot functionality.
+        Error bars will be added in a future implementation.
+
+        Args:
+            dataset: The error bar plot dataset to render.
         """
         canvas = self.query_one("#plot", Canvas)
         if dataset.hires_mode:
