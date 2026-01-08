@@ -269,7 +269,9 @@ class ErrorBarPlot(Container):
             self.yerr,
             marker=self.marker,
             hires_mode=self.hires_mode,
+            label="Random data",
         )
+        plot.show_legend()
 
     def action_cycle_marker(self) -> None:
         self.marker = next(self._marker)

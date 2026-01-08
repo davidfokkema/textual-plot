@@ -621,17 +621,17 @@ class PlotWidget(Widget, can_focus=True):
 
         for label, dataset in zip(self._labels, self._datasets):
             if label is not None:
-                if isinstance(dataset, ScatterPlot):
+                if isinstance(dataset, LinePlot):
+                    marker = LEGEND_LINE[dataset.hires_mode]
+                    style = dataset.line_style
+                elif isinstance(dataset, ErrorBarPlot):
                     marker = (
-                        dataset.marker
+                        dataset.marker or "┼"
                         if dataset.hires_mode is None
                         else LEGEND_MARKER[dataset.hires_mode]
                     ).center(3)
                     style = dataset.marker_style
-                elif isinstance(dataset, LinePlot):
-                    marker = LEGEND_LINE[dataset.hires_mode]
-                    style = dataset.line_style
-                elif isinstance(dataset, ErrorBarPlot):
+                elif isinstance(dataset, ScatterPlot):
                     marker = (
                         dataset.marker
                         if dataset.hires_mode is None
