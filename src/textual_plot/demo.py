@@ -230,6 +230,56 @@ class MultiPlot(Grid):
         self.plot()
 
 
+class ErrorBarPlot(Container):
+    BINDINGS = [
+        ("n", "new_data", "New data"),
+        ("m", "cycle_marker", "Marker"),
+        ("h", "cycle_hires_mode", "HiRes"),
+    ]
+
+    N = 100
+    _marker = itertools.cycle(["", "o"])
+    marker = next(_marker)
+    _hires_mode = itertools.cycle([None, HiResMode.BRAILLE])
+    hires_mode = next(_hires_mode)
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self.action_new_data()
+        plot = self.query_one(PlotWidget)
+        plot.set_xlimits(-5, 5)
+        plot.set_ylimits(-5, 5)
+
+    def action_new_data(self) -> None:
+        self.x = np.random.normal(0, 5.0, self.N)
+        self.y = np.random.normal(0, 5.0, self.N)
+        self.xerr = np.random.lognormal(-2, 0.5, self.N)
+        self.yerr = np.random.lognormal(-2, 0.5, self.N)
+        self.plot()
+
+    def plot(self) -> None:
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+        plot.errorbar(
+            self.x,
+            self.y,
+            self.xerr,
+            self.yerr,
+            marker=self.marker,
+            hires_mode=self.hires_mode,
+        )
+
+    def action_cycle_marker(self) -> None:
+        self.marker = next(self._marker)
+        self.plot()
+
+    def action_cycle_hires_mode(self) -> None:
+        self.hires_mode = next(self._hires_mode)
+        self.plot()
+
+
 class DemoApp(App[None]):
     AUTO_FOCUS = "SinePlot > PlotWidget"
 
@@ -250,6 +300,8 @@ class DemoApp(App[None]):
                 yield SpectrumPlot()
             with TabPane("Multiplot", id="multiplot"):
                 yield MultiPlot()
+            with TabPane("Errorbars", id="errorbars"):
+                yield ErrorBarPlot()
 
 
 def main() -> None:
