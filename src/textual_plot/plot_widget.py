@@ -451,8 +451,13 @@ class PlotWidget(Widget, can_focus=True):
     ) -> None:
         """Graph dataset using an error bar plot.
 
-        If you supply hires_mode, the dataset will be plotted using one of the
-        available high-resolution modes like 1x2, 2x2 or 2x8 pixel-per-cell
+        Error bars are rendered to half-cell resolution. If the error bars
+        become very small and no marker is specified, a dot is rendered at the
+        location of the data point. The markers are rendered last so that error
+        bars never obscure the data points.
+
+        If you supply hires_mode, the data points will be plotted using one of
+        the available high-resolution modes like 1x2, 2x2 or 2x8 pixel-per-cell
         characters.
 
         Args:
@@ -860,86 +865,112 @@ class PlotWidget(Widget, can_focus=True):
     def _render_errorbar_plot(self, dataset: ErrorBarPlot) -> None:
         """Render the error bars for an error bar plot.
 
-        Both full-width and half-width characters are used for the errorbar.
+        Both full-width and half-width characters are used for the errorbar. If
+        the error bars become very small, a dot is rendered at the location of
+        the data point. The markers are rendered last so that error bars never
+        obscure the data points. If hires plotting is used, the markers are
+        correctly rendered using hires modes.
 
         Args:
             dataset: The error bar plot dataset to render.
         """
+
+        def partial_lengths(length: FloatScalar) -> tuple[float, int, float]:
+            """Return partial lengths of error bar.
+
+            An error bar with length 3 should be rendered as: +, --, (extra half
+            cell).
+
+            Returns:
+                A tuple containing the length of the central half cell, the
+                extra full-width cells and an extra half cell if needed.
+            """
+            rounded_length = round(length * 2) / 2
+            if rounded_length < 0.5:
+                return 0.0, 0, 0.0
+            else:
+                extra_length = rounded_length - 0.5
+                return 0.5, int(extra_length // 1), extra_length % 1
+
         canvas = self.query_one("#plot", Canvas)
 
-        # Render x error bars first
-        if dataset.xerr is not None:
-            # render error bars
-            for xi, yi, xerr, yerr in zip(
-                dataset.x, dataset.y, dataset.xerr, dataset.yerr
-            ):
-                center_px, center_py = self.get_pixel_from_coordinate(xi, yi)
-                center_x, center_y = self.get_hires_pixel_from_coordinate(xi, yi)
-                xe, ye = self.get_hires_pixel_from_coordinate(xi - xerr, yi - yerr)
-                x_length = center_x - xe
-                x_length_px = round(x_length)
-                y_length = (
-                    ye - center_y
-                )  # canvas y-coordinates count from top to bottom
-                y_length_px = round(y_length)
+        # store marker information for later rendering
+        markers = []
+        # render error bars
+        for xi, yi, xerr, yerr in zip(dataset.x, dataset.y, dataset.xerr, dataset.yerr):
+            center_px, center_py = self.get_pixel_from_coordinate(xi, yi)
 
-                # draw the full-width characters
-                canvas.draw_line(
-                    center_px - x_length_px,
+            # determine length of error bars
+            x0, y0 = self.get_hires_pixel_from_coordinate(0, 0)
+            xe, ye = self.get_hires_pixel_from_coordinate(xerr, yerr)
+            x_length = xe - x0
+            y_length = y0 - ye
+
+            center_width, int_width, frac_width = partial_lengths(x_length)
+            center_height, int_height, frac_height = partial_lengths(y_length)
+
+            # draw the full-width characters
+            canvas.draw_line(
+                center_px - int_width,
+                center_py,
+                center_px + int_width,
+                center_py,
+                char="─",
+                style=dataset.marker_style,
+            )
+            canvas.draw_line(
+                center_px,
+                center_py - int_height,
+                center_px,
+                center_py + int_height,
+                char="│",
+                style=dataset.marker_style,
+            )
+
+            # render half-width characters if needed at the edges
+            if frac_width > 0.0:
+                canvas.set_pixel(
+                    center_px - int_width - 1,
                     center_py,
-                    center_px + x_length_px,
-                    center_py,
-                    char="─",
+                    char="╶",
                     style=dataset.marker_style,
                 )
-                canvas.draw_line(
+                canvas.set_pixel(
+                    center_px + int_width + 1,
+                    center_py,
+                    char="╴",
+                    style=dataset.marker_style,
+                )
+            if frac_height > 0.0:
+                canvas.set_pixel(
                     center_px,
-                    center_py - y_length_px,
+                    center_py - int_height - 1,
+                    char="╷",
+                    style=dataset.marker_style,
+                )
+                canvas.set_pixel(
                     center_px,
-                    center_py + y_length_px,
-                    char="│",
+                    center_py + int_height + 1,
+                    char="╵",
                     style=dataset.marker_style,
                 )
 
-                # render half-width characters if needed at the edges
-                if (x_length - x_length_px) > 0.25:
-                    canvas.set_pixel(
-                        center_px - x_length_px - 1,
-                        center_py,
-                        char="╶",
-                        style=dataset.marker_style,
-                    )
-                    canvas.set_pixel(
-                        center_px + x_length_px + 1,
-                        center_py,
-                        char="╴",
-                        style=dataset.marker_style,
-                    )
-                if (y_length - y_length_px) > 0.25:
-                    canvas.set_pixel(
-                        center_px,
-                        center_py - y_length_px - 1,
-                        char="╷",
-                        style=dataset.marker_style,
-                    )
-                    canvas.set_pixel(
-                        center_px,
-                        center_py + y_length_px + 1,
-                        char="╵",
-                        style=dataset.marker_style,
-                    )
-                # if hires mode is off, render marker
-                if dataset.hires_mode is None:
-                    canvas.set_pixel(
-                        center_px,
-                        center_py,
-                        dataset.marker or "┼",
-                        style=dataset.marker_style,
-                    )
+            # store marker information for later rendering
+            if dataset.marker:
+                marker = dataset.marker
+            else:
+                if center_width > 0.0 and center_height > 0.0:
+                    marker = "┼"
+                else:
+                    marker = "·"
+            markers.append((center_px, center_py, marker, dataset.marker_style))
 
-            # render hires markers, if specified
-            if dataset.hires_mode:
-                self._render_scatter_plot(dataset)
+        # render hires markers, if specified
+        if dataset.hires_mode:
+            self._render_scatter_plot(dataset)
+        else:
+            for marker in markers:
+                canvas.set_pixel(*marker)
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
         """Render a line plot dataset on the canvas.
