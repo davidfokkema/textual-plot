@@ -12,7 +12,7 @@ class ErrorBarApp(App[None]):
         plot = self.query_one(PlotWidget)
         x = np.linspace(1.0, 9.0, 5)
         y = x / 2
-        xerr = x / 10
+        xerr = np.ones(shape=x.shape)
         yerr = x / 10
         plot.errorbar(x, y, xerr, yerr)
         plot.set_xlimits(0, 10)

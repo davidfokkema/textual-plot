@@ -114,20 +114,16 @@ class ScatterPlot(DataSet):
 
 
 @dataclass
-class ErrorBarPlot(DataSet):
+class ErrorBarPlot(ScatterPlot):
     """A dataset for rendering as an error bar plot.
 
     Attributes:
         xerr: Array of x-direction error values (can be None for no x errors).
         yerr: Array of y-direction error values (can be None for no y errors).
-        marker: Character to use as the marker (e.g., "o", "*", "+").
-        marker_style: Rich style string for the markers (e.g., "white", "bold blue").
     """
 
     xerr: FloatArray | None
     yerr: FloatArray | None
-    marker: str
-    marker_style: str
 
 
 @dataclass
@@ -474,11 +470,11 @@ class PlotWidget(Widget, can_focus=True):
             label: A string with the label for the dataset. Defaults to None.
         """
         x, y = drop_nans_and_infs(np.array(x), np.array(y))
-        
+
         # Convert error arrays to numpy arrays if provided
         xerr_array = np.array(xerr) if xerr is not None else None
         yerr_array = np.array(yerr) if yerr is not None else None
-        
+
         self._datasets.append(
             ErrorBarPlot(
                 x=x,
@@ -810,12 +806,12 @@ class PlotWidget(Widget, can_focus=True):
 
         # render datasets
         for dataset in self._datasets:
-            if isinstance(dataset, ScatterPlot):
-                self._render_scatter_plot(dataset)
-            elif isinstance(dataset, LinePlot):
+            if isinstance(dataset, LinePlot):
                 self._render_line_plot(dataset)
             elif isinstance(dataset, ErrorBarPlot):
-                self._render_errorbar_plot(dataset)
+                self._render_errorbars(dataset)
+            if isinstance(dataset, ScatterPlot):
+                self._render_scatter_plot(dataset)
 
         # render axis, ticks and labels
         canvas.draw_rectangle_box(
@@ -861,33 +857,53 @@ class PlotWidget(Widget, can_focus=True):
                     *pixel, char=dataset.marker, style=dataset.marker_style
                 )
 
-    def _render_errorbar_plot(self, dataset: ErrorBarPlot) -> None:
-        """Render an error bar plot dataset on the canvas.
+    def _render_errorbars(self, dataset: ErrorBarPlot) -> None:
+        """Render the error bars for an error bar plot.
 
-        For now, this duplicates the scatter plot functionality.
-        Error bars will be added in a future implementation.
+        Both full-width and half-width characters are used for the errorbar.
 
         Args:
             dataset: The error bar plot dataset to render.
         """
         canvas = self.query_one("#plot", Canvas)
-        if dataset.hires_mode:
-            hires_pixels = [
-                self.get_hires_pixel_from_coordinate(xi, yi)
-                for xi, yi in zip(dataset.x, dataset.y)
-            ]
-            canvas.set_hires_pixels(
-                hires_pixels, style=dataset.marker_style, hires_mode=dataset.hires_mode
-            )
-        else:
-            pixels = [
-                self.get_pixel_from_coordinate(xi, yi)
-                for xi, yi in zip(dataset.x, dataset.y)
-            ]
-            for pixel in pixels:
-                canvas.set_pixel(
-                    *pixel, char=dataset.marker, style=dataset.marker_style
+
+        # Render x error bars first
+        if dataset.xerr is not None:
+            for xi, yi, xerr_val in zip(dataset.x, dataset.y, dataset.xerr):
+                if np.isnan(xerr_val) or np.isinf(xerr_val):
+                    continue
+
+                center_px, center_py = self.get_pixel_from_coordinate(xi, yi)
+                x_length = (
+                    self.get_hires_pixel_from_coordinate(xi, 0)[0]
+                    - self.get_hires_pixel_from_coordinate(xi - xerr_val, 0)[0]
                 )
+
+                # draw the full-width characters
+                x_length_px = round(x_length)
+                canvas.draw_line(
+                    center_px - x_length_px,
+                    center_py,
+                    center_px + x_length_px,
+                    center_py,
+                    char="─",
+                    style=dataset.marker_style,
+                )
+
+                # render half-width characters if needed at the edges
+                if (x_length - x_length_px) > 0.25:
+                    canvas.set_pixel(
+                        center_px - x_length_px - 1,
+                        center_py,
+                        char="╶",
+                        style=dataset.marker_style,
+                    )
+                    canvas.set_pixel(
+                        center_px + x_length_px + 1,
+                        center_py,
+                        char="╴",
+                        style=dataset.marker_style,
+                    )
 
     def _render_line_plot(self, dataset: LinePlot) -> None:
         """Render a line plot dataset on the canvas.
