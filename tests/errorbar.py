@@ -1,7 +1,7 @@
 import numpy as np
 from textual.app import App, ComposeResult
 
-from textual_plot import PlotWidget
+from textual_plot import HiResMode, PlotWidget
 
 
 class ErrorBarApp(App[None]):
@@ -13,7 +13,7 @@ class ErrorBarApp(App[None]):
         x = np.linspace(1.0, 9.0, 5)
         y = x / 2
         xerr = np.ones(shape=x.shape)
-        yerr = x / 10
+        yerr = xerr
         plot.errorbar(x, y, xerr, yerr)
         plot.set_xlimits(0, 10)
         plot.set_ylimits(0, 5)
