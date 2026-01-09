@@ -1238,7 +1238,8 @@ class PlotWidget(Widget, can_focus=True):
 
         Args:
             event: The mouse scroll event triggering the zoom.
-            factor: The zoom factor to apply (positive for zoom in, negative for zoom out).
+            factor: The zoom factor to apply (positive for zoom in, negative for
+                zoom out).
         """
         if not self._allow_pan_and_zoom:
             return
@@ -1257,6 +1258,12 @@ class PlotWidget(Widget, can_focus=True):
             self._zoom(x, y, factor, zoom_x, zoom_y)
 
     def _zoom_with_keyboard(self, factor: float) -> None:
+        """Handle zoom operations centered on the plot's center point.
+
+        Args:
+            factor: The zoom factor to apply (positive for zoom in, negative for
+                zoom out).
+        """
         cx = mean([self._x_min, self._x_max])
         cy = mean([self._y_min, self._y_max])
         self._zoom(cx, cy, factor, zoom_x=True, zoom_y=True)
@@ -1269,6 +1276,19 @@ class PlotWidget(Widget, can_focus=True):
         zoom_x: bool,
         zoom_y: bool,
     ) -> None:
+        """Perform zoom operation around a center point.
+
+        The zoom is performed using the formula: new_limit = (old_limit + factor
+        * center) / (1 + factor) This keeps the center point fixed while scaling
+        the distance from the center to each limit.
+
+        Args:
+            center_x: The x-coordinate to zoom around (in data coordinates).
+            center_y: The y-coordinate to zoom around (in data coordinates).
+            factor: The zoom factor (positive to zoom in, negative to zoom out).
+            zoom_x: Whether to zoom in the x direction.
+            zoom_y: Whether to zoom in the y direction.
+        """
         if zoom_x:
             self._auto_x_min = False
             self._auto_x_max = False
@@ -1337,7 +1357,7 @@ class PlotWidget(Widget, can_focus=True):
 
     @on(MouseMove)
     def drag_with_mouse(self, event: MouseMove) -> None:
-        """Handle mouse drag operations for panning the plot or moving the legend.
+        """Handle mouse drag operations for panning the plot or the legend.
 
         Args:
             event: The mouse move event.
@@ -1351,7 +1371,7 @@ class PlotWidget(Widget, can_focus=True):
         if self._is_dragging_legend:
             self._drag_legend(event)
         else:
-            self._pan_plot(event)
+            self._pan_plot_with_mouse(event)
 
     def _drag_legend(self, event: MouseMove) -> None:
         """Update legend position while dragging.
@@ -1363,8 +1383,8 @@ class PlotWidget(Widget, can_focus=True):
         self._position_legend()
         self.query_one("#legend").refresh(layout=True)
 
-    def _pan_plot(self, event: MouseMove) -> None:
-        """Pan the plot by adjusting axis limits based on mouse movement.
+    def _pan_plot_with_mouse(self, event: MouseMove) -> None:
+        """Handle pan operations using mouse movement.
 
         Args:
             event: The mouse move event with drag delta information.
@@ -1374,16 +1394,31 @@ class PlotWidget(Widget, can_focus=True):
         dx, dy = x2 - x1, y1 - y2
 
         assert event.widget is not None
-        if event.widget.id in ("plot", "margin-bottom"):
+        delta_x = (
+            dx * event.delta_x if event.widget.id in ("plot", "margin-bottom") else 0.0
+        )
+        delta_y = (
+            dy * event.delta_y if event.widget.id in ("plot", "margin-left") else 0.0
+        )
+        self._pan(delta_x, delta_y)
+
+    def _pan(self, delta_x: float, delta_y: float) -> None:
+        """Pan the plot by adjusting axis limits.
+
+        Args:
+            delta_x: The distance to pan in the x direction (data coordinates).
+            delta_y: The distance to pan in the y direction (data coordinates).
+        """
+        if delta_x != 0.0:
             self._auto_x_min = False
             self._auto_x_max = False
-            self._x_min -= dx * event.delta_x
-            self._x_max -= dx * event.delta_x
-        if event.widget.id in ("plot", "margin-left"):
+            self._x_min -= delta_x
+            self._x_max -= delta_x
+        if delta_y != 0.0:
             self._auto_y_min = False
             self._auto_y_max = False
-            self._y_min += dy * event.delta_y
-            self._y_max += dy * event.delta_y
+            self._y_min += delta_y
+            self._y_max += delta_y
         self.post_message(
             self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
         )
