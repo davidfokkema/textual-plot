@@ -244,7 +244,7 @@ class PlotWidget(Widget, can_focus=True):
 
     MOUSE_ZOOM_FACTOR: float = 0.05
     KEYBOARD_ZOOM_FACTOR: float = 0.15
-    KEYBOARD_PAN_FACTOR: float = 5.0
+    KEYBOARD_PAN_FACTOR: float = 2.0
 
     _datasets: list[DataSet]
     _labels: list[str | None]
