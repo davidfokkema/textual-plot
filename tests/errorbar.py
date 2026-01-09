@@ -1,7 +1,7 @@
 import numpy as np
 from textual.app import App, ComposeResult
 
-from textual_plot import HiResMode, PlotWidget
+from textual_plot import PlotWidget
 
 
 class ErrorBarApp(App[None]):

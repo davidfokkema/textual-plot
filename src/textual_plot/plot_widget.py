@@ -11,7 +11,7 @@ from __future__ import annotations
 import enum
 import sys
 from dataclasses import dataclass
-from math import ceil, floor, log10
+from math import ceil, floor
 from statistics import mean
 from typing import Sequence, TypeAlias
 
@@ -1267,7 +1267,9 @@ class PlotWidget(Widget, can_focus=True):
             zoom_y = True if widget.id in ("plot", "margin-left") else False
             self._zoom(x, y, factor, zoom_x, zoom_y)
 
-    def _zoom_with_keyboard(self, factor: float, zoom_x: bool = True, zoom_y: bool = True) -> None:
+    def _zoom_with_keyboard(
+        self, factor: float, zoom_x: bool = True, zoom_y: bool = True
+    ) -> None:
         """Handle zoom operations centered on the plot's center point.
 
         Args:
@@ -1434,12 +1436,8 @@ class PlotWidget(Widget, can_focus=True):
             event: The mouse move event with drag delta information.
         """
         assert event.widget is not None
-        factor_x = (
-            event.delta_x if event.widget.id in ("plot", "margin-bottom") else 0
-        )
-        factor_y = (
-            event.delta_y if event.widget.id in ("plot", "margin-left") else 0
-        )
+        factor_x = event.delta_x if event.widget.id in ("plot", "margin-bottom") else 0
+        factor_y = event.delta_y if event.widget.id in ("plot", "margin-left") else 0
         self._pan(factor_x, factor_y)
 
     def _pan(self, factor_x: float, factor_y: float) -> None:
@@ -1453,7 +1451,7 @@ class PlotWidget(Widget, can_focus=True):
         x1, y1 = self.get_coordinate_from_pixel(1, 1)
         x2, y2 = self.get_coordinate_from_pixel(2, 2)
         dx, dy = x2 - x1, y1 - y2
-        
+
         # Convert pixel factors to data coordinate deltas
         delta_x = dx * factor_x
         delta_y = dy * factor_y
