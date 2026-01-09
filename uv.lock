@@ -1600,7 +1600,7 @@ wheels = [
 
 [[package]]
 name = "textual"
-version = "6.7.1"
+version = "7.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py", extra = ["linkify"] },
@@ -1610,9 +1610,9 @@ dependencies = [
     { name = "rich" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ab/00/9520327698acb6d8ae120b311ef1901840d55a6c41580e377f36261daf7a/textual-6.7.1.tar.gz", hash = "sha256:2a5acb0ab316a7ba9e74b0a291fab8933d681d7cf6f4e1eeb45c39a731b094cf", size = 1580916, upload-time = "2025-12-01T20:57:25.578Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/a6/27187e6a627389631cbf6059abdd54f601890c88970a2e0f8b067da0e14e/textual-7.0.2.tar.gz", hash = "sha256:a2c6b42036e8dbde178536c997a82392f1ab73dac9518543f8ff7206eff881c5", size = 1582161, upload-time = "2026-01-09T12:48:37.583Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/7a/7f3ea5e6f26d546ee4bd107df8fc9eef9f149dab0f6f15e1fc9f9413231f/textual-6.7.1-py3-none-any.whl", hash = "sha256:b92977ac5941dd37b6b7dc0ac021850ce8d9bf2e123c5bab7ff2016f215272e0", size = 713993, upload-time = "2025-12-01T20:57:23.698Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/13/26d6aee32bf1462408ecb5f64f6c1a3cd0111ec2d5ddd91b034ab9603b82/textual-7.0.2-py3-none-any.whl", hash = "sha256:cb572e5a722bbf90267b5c44ea07846a8bc654e806dd748277c025d56371ebb0", size = 715258, upload-time = "2026-01-09T12:48:35.484Z" },
 ]
 
 [[package]]
