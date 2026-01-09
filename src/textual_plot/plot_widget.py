@@ -230,6 +230,10 @@ class PlotWidget(Widget, can_focus=True):
         ("+", "zoom_in", "Zoom"),
         ("-", "zoom_out", "Zoom"),
         ("r", "reset_scales", "Reset scales"),
+        ("left", "pan_left", "Pan left"),
+        ("right", "pan_right", "Pan right"),
+        ("up", "pan_up", "Pan up"),
+        ("down", "pan_down", "Pan down"),
     ]
 
     margin_top = reactive(2)
@@ -1330,6 +1334,22 @@ class PlotWidget(Widget, can_focus=True):
     def action_zoom_out(self) -> None:
         self._zoom_with_keyboard(-3 * ZOOM_FACTOR)
 
+    def action_pan_left(self) -> None:
+        """Pan the plot to the left."""
+        self._pan(5, 0)
+
+    def action_pan_right(self) -> None:
+        """Pan the plot to the right."""
+        self._pan(-5, 0)
+
+    def action_pan_up(self) -> None:
+        """Pan the plot upward."""
+        self._pan(0, 5)
+
+    def action_pan_down(self) -> None:
+        """Pan the plot downward."""
+        self._pan(0, -5)
+
     @on(MouseDown)
     def start_dragging_legend(self, event: MouseDown) -> None:
         """Start dragging the legend when clicked with left mouse button.
@@ -1389,26 +1409,30 @@ class PlotWidget(Widget, can_focus=True):
         Args:
             event: The mouse move event with drag delta information.
         """
-        x1, y1 = self.get_coordinate_from_pixel(1, 1)
-        x2, y2 = self.get_coordinate_from_pixel(2, 2)
-        dx, dy = x2 - x1, y1 - y2
-
         assert event.widget is not None
-        delta_x = (
-            dx * event.delta_x if event.widget.id in ("plot", "margin-bottom") else 0.0
+        factor_x = (
+            event.delta_x if event.widget.id in ("plot", "margin-bottom") else 0
         )
-        delta_y = (
-            dy * event.delta_y if event.widget.id in ("plot", "margin-left") else 0.0
+        factor_y = (
+            event.delta_y if event.widget.id in ("plot", "margin-left") else 0
         )
-        self._pan(delta_x, delta_y)
+        self._pan(factor_x, factor_y)
 
-    def _pan(self, delta_x: float, delta_y: float) -> None:
+    def _pan(self, factor_x: float, factor_y: float) -> None:
         """Pan the plot by adjusting axis limits.
 
         Args:
-            delta_x: The distance to pan in the x direction (data coordinates).
-            delta_y: The distance to pan in the y direction (data coordinates).
+            factor_x: The pan factor in the x direction (in pixel units).
+            factor_y: The pan factor in the y direction (in pixel units).
         """
+        # Calculate the data coordinate distance per pixel
+        x1, y1 = self.get_coordinate_from_pixel(1, 1)
+        x2, y2 = self.get_coordinate_from_pixel(2, 2)
+        dx, dy = x2 - x1, y1 - y2
+        
+        # Convert pixel factors to data coordinate deltas
+        delta_x = dx * factor_x
+        delta_y = dy * factor_y
         if delta_x != 0.0:
             self._auto_x_min = False
             self._auto_x_max = False
