@@ -12,6 +12,7 @@ import enum
 import sys
 from dataclasses import dataclass
 from math import ceil, floor, log10
+from statistics import mean
 from typing import Sequence, TypeAlias
 
 from rich.text import Text
@@ -225,7 +226,11 @@ class PlotWidget(Widget, can_focus=True):
         }
     """
 
-    BINDINGS = [("r", "reset_scales", "Reset scales")]
+    BINDINGS = [
+        ("+", "zoom_in", "Zoom"),
+        ("-", "zoom_out", "Zoom"),
+        ("r", "reset_scales", "Reset scales"),
+    ]
 
     margin_top = reactive(2)
     margin_bottom = reactive(3)
@@ -1226,7 +1231,9 @@ class PlotWidget(Widget, can_focus=True):
             region=self._scale_rectangle,
         )
 
-    def _zoom(self, event: MouseScrollDown | MouseScrollUp, factor: float) -> None:
+    def _zoom_with_mouse(
+        self, event: MouseScrollDown | MouseScrollUp, factor: float
+    ) -> None:
         """Handle zoom operations centered on the mouse cursor position.
 
         Args:
@@ -1245,22 +1252,37 @@ class PlotWidget(Widget, can_focus=True):
             if widget.id == "margin-bottom":
                 offset = event.screen_offset - self.screen.get_offset(canvas)
             x, y = self.get_coordinate_from_pixel(offset.x, offset.y)
-            if widget.id in ("plot", "margin-bottom"):
-                self._auto_x_min = False
-                self._auto_x_max = False
-                self._x_min = (self._x_min + factor * x) / (1 + factor)
-                self._x_max = (self._x_max + factor * x) / (1 + factor)
-            if widget.id in ("plot", "margin-left"):
-                self._auto_y_min = False
-                self._auto_y_max = False
-                self._y_min = (self._y_min + factor * y) / (1 + factor)
-                self._y_max = (self._y_max + factor * y) / (1 + factor)
-            self.post_message(
-                self.ScaleChanged(
-                    self, self._x_min, self._x_max, self._y_min, self._y_max
-                )
-            )
-            self.refresh(layout=True)
+            zoom_x = True if widget.id in ("plot", "margin-bottom") else False
+            zoom_y = True if widget.id in ("plot", "margin-left") else False
+            self._zoom(x, y, factor, zoom_x, zoom_y)
+
+    def _zoom_with_keyboard(self, factor: float) -> None:
+        cx = mean([self._x_min, self._x_max])
+        cy = mean([self._y_min, self._y_max])
+        self._zoom(cx, cy, factor, zoom_x=True, zoom_y=True)
+
+    def _zoom(
+        self,
+        center_x: float,
+        center_y: float,
+        factor: float,
+        zoom_x: bool,
+        zoom_y: bool,
+    ) -> None:
+        if zoom_x:
+            self._auto_x_min = False
+            self._auto_x_max = False
+            self._x_min = (self._x_min + factor * center_x) / (1 + factor)
+            self._x_max = (self._x_max + factor * center_x) / (1 + factor)
+        if zoom_y:
+            self._auto_y_min = False
+            self._auto_y_max = False
+            self._y_min = (self._y_min + factor * center_y) / (1 + factor)
+            self._y_max = (self._y_max + factor * center_y) / (1 + factor)
+        self.post_message(
+            self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
+        )
+        self.refresh(layout=True)
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
@@ -1270,7 +1292,7 @@ class PlotWidget(Widget, can_focus=True):
             event: The mouse scroll down event.
         """
         event.stop()
-        self._zoom(event, ZOOM_FACTOR)
+        self._zoom_with_mouse(event, ZOOM_FACTOR)
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollUp) -> None:
@@ -1280,7 +1302,13 @@ class PlotWidget(Widget, can_focus=True):
             event: The mouse scroll up event.
         """
         event.stop()
-        self._zoom(event, -ZOOM_FACTOR)
+        self._zoom_with_mouse(event, -ZOOM_FACTOR)
+
+    def action_zoom_in(self) -> None:
+        self._zoom_with_keyboard(3 * ZOOM_FACTOR)
+
+    def action_zoom_out(self) -> None:
+        self._zoom_with_keyboard(-3 * ZOOM_FACTOR)
 
     @on(MouseDown)
     def start_dragging_legend(self, event: MouseDown) -> None:
