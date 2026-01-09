@@ -127,6 +127,19 @@ class ErrorBarPlot(ScatterPlot):
 
 
 @dataclass
+class BarPlot(DataSet):
+    """A dataset for rendering as a bar plot.
+
+    Attributes:
+        width: Width of each bar in data coordinates. Can be a scalar or array.
+        bar_style: Rich style string or array of styles for the bars (e.g., "white", "bold red").
+    """
+
+    width: FloatArray
+    bar_style: str | list[str]
+
+
+@dataclass
 class VLinePlot:
     """A vertical line to be drawn on the plot.
 
@@ -522,6 +535,65 @@ class PlotWidget(Widget, can_focus=True):
         self._labels.append(label)
         self.refresh(layout=True)
 
+    def bar(
+        self,
+        x: ArrayLike,
+        y: ArrayLike,
+        width: float | ArrayLike | None = None,
+        bar_style: str | list[str] = "white",
+        hires_mode: HiResMode | None = None,
+        label: str | None = None,
+    ) -> None:
+        """Graph dataset using a bar plot.
+
+        Bars are drawn as filled rectangles from y=0 to the specified y values.
+        If you supply hires_mode, the bars will be plotted using one of the
+        available high-resolution modes like 1x2, 2x2 or 2x8 pixel-per-cell
+        characters.
+
+        Args:
+            x: An ArrayLike with the x-coordinate values for the center of each bar.
+            y: An ArrayLike with the height values for each bar.
+            width: Width of the bars in data coordinates. Can be a single value
+                for all bars, an array of widths for each bar, or None to auto-calculate
+                based on spacing. Defaults to None.
+            bar_style: A string with the style for all bars or a list of styles
+                for each bar. Defaults to "white".
+            hires_mode: A HiResMode enum or None to plot with full-cell blocks.
+                Defaults to None.
+            label: A string with the label for the dataset. Defaults to None.
+        """
+        x, y = drop_nans_and_infs(np.array(x), np.array(y))
+
+        # Calculate default width if not provided
+        if width is None:
+            if len(x) > 1:
+                # Use 80% of the minimum spacing between bars
+                spacings = np.diff(np.sort(x))
+                width = 0.8 * float(np.min(spacings))
+            else:
+                # Single bar, use a reasonable default
+                width = 0.8
+
+        # Convert width to array if it's a scalar
+        width_array: FloatArray
+        if isinstance(width, (int, float, np.number)):
+            width_array = np.full_like(x, width, dtype=float)
+        else:
+            width_array = np.array(width, dtype=float)
+
+        self._datasets.append(
+            BarPlot(
+                x=x,
+                y=y,
+                width=width_array,
+                bar_style=bar_style,
+                hires_mode=hires_mode,
+            )
+        )
+        self._labels.append(label)
+        self.refresh(layout=True)
+
     def add_v_line(
         self, x: float, line_style: str = "white", label: str | None = None
     ) -> None:
@@ -659,6 +731,14 @@ class PlotWidget(Widget, can_focus=True):
                         else LEGEND_MARKER[dataset.hires_mode]
                     ).center(3)
                     style = dataset.marker_style
+                elif isinstance(dataset, BarPlot):
+                    marker = "███"
+                    # Use first style if bar_style is a list
+                    style = (
+                        dataset.bar_style[0]
+                        if isinstance(dataset.bar_style, list)
+                        else dataset.bar_style
+                    )
                 elif isinstance(dataset, ScatterPlot):
                     marker = (
                         dataset.marker
@@ -809,10 +889,27 @@ class PlotWidget(Widget, can_focus=True):
 
         # determine axis limits
         if self._datasets or self._v_lines:
-            xs = [dataset.x for dataset in self._datasets]
+            xs = []
+            ys = []
+            
+            # Collect x and y values, accounting for bar widths
+            for dataset in self._datasets:
+                if isinstance(dataset, BarPlot):
+                    # For bar plots, include the left and right edges
+                    x_left = dataset.x - dataset.width / 2
+                    x_right = dataset.x + dataset.width / 2
+                    xs.append(x_left)
+                    xs.append(x_right)
+                    # Include both y=0 and the bar heights
+                    ys.append(np.zeros_like(dataset.y))
+                    ys.append(dataset.y)
+                else:
+                    xs.append(dataset.x)
+                    ys.append(dataset.y)
+            
             if self._v_lines:
                 xs.append(np.array([vline.x for vline in self._v_lines]))
-            ys = [dataset.y for dataset in self._datasets]
+            
             if self._auto_x_min:
                 non_empty_xs = [x for x in xs if len(x) > 0]
                 if non_empty_xs:
@@ -843,6 +940,8 @@ class PlotWidget(Widget, can_focus=True):
                 self._render_line_plot(dataset)
             elif isinstance(dataset, ErrorBarPlot):
                 self._render_errorbar_plot(dataset)
+            elif isinstance(dataset, BarPlot):
+                self._render_bar_plot(dataset)
             elif isinstance(dataset, ScatterPlot):
                 self._render_scatter_plot(dataset)
 
@@ -1038,6 +1137,60 @@ class PlotWidget(Widget, can_focus=True):
             ]
             for i in range(1, len(pixels)):
                 canvas.draw_line(*pixels[i - 1], *pixels[i], style=dataset.line_style)
+
+    def _render_bar_plot(self, dataset: BarPlot) -> None:
+        """Render a bar plot dataset on the canvas.
+
+        Bars are drawn as filled quads from y=0 to the specified y values.
+        The method uses either draw_filled_quad or draw_filled_hires_quad
+        depending on whether a hires mode was selected.
+
+        Args:
+            dataset: The bar plot dataset to render.
+        """
+        canvas = self.query_one("#plot", Canvas)
+
+        # Determine if bar_style is a single style or a list
+        is_style_array = isinstance(dataset.bar_style, list)
+
+        for i, (xi, yi, width) in enumerate(zip(dataset.x, dataset.y, dataset.width)):
+            # Get the style for this bar
+            style = dataset.bar_style[i] if is_style_array else dataset.bar_style
+            assert isinstance(style, str)
+
+            # Calculate the four corners of the bar in data coordinates
+            x_left = xi - width / 2
+            x_right = xi + width / 2
+            y_bottom = 0.0
+            y_top = yi
+
+            if dataset.hires_mode:
+                # Use high-resolution quad rendering (clockwise from bottom-left)
+                x0, y0 = self.get_hires_pixel_from_coordinate(x_left, y_bottom)
+                x1, y1 = self.get_hires_pixel_from_coordinate(x_left, y_top)
+                x2, y2 = self.get_hires_pixel_from_coordinate(x_right, y_top)
+                x3, y3 = self.get_hires_pixel_from_coordinate(x_right, y_bottom)
+
+                canvas.draw_filled_hires_quad(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    x3,
+                    y3,
+                    hires_mode=dataset.hires_mode,
+                    style=style,
+                )
+            else:
+                # Use standard quad rendering (clockwise from bottom-left)
+                x0, y0 = self.get_pixel_from_coordinate(x_left, y_bottom)
+                x1, y1 = self.get_pixel_from_coordinate(x_left, y_top)
+                x2, y2 = self.get_pixel_from_coordinate(x_right, y_top)
+                x3, y3 = self.get_pixel_from_coordinate(x_right, y_bottom)
+
+                canvas.draw_filled_quad(x0, y0, x1, y1, x2, y2, x3, y3, style=style)
 
     def _render_v_line_plot(self, vline: VLinePlot) -> None:
         """Render a vertical line on the canvas.
