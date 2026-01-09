@@ -50,8 +50,6 @@ FloatScalar: TypeAlias = float | np.floating
 FloatArray: TypeAlias = NDArray[np.floating]
 
 
-ZOOM_FACTOR = 0.05
-
 LEGEND_LINE = {
     None: "███",
     HiResMode.BRAILLE: "⠒⠒⠒",
@@ -243,6 +241,10 @@ class PlotWidget(Widget, can_focus=True):
     margin_top = reactive(2)
     margin_bottom = reactive(3)
     margin_left = reactive(10)
+
+    MOUSE_ZOOM_FACTOR: float = 0.05
+    KEYBOARD_ZOOM_FACTOR: float = 0.15
+    KEYBOARD_PAN_FACTOR: float = 5.0
 
     _datasets: list[DataSet]
     _labels: list[str | None]
@@ -1322,7 +1324,7 @@ class PlotWidget(Widget, can_focus=True):
             event: The mouse scroll down event.
         """
         event.stop()
-        self._zoom_with_mouse(event, ZOOM_FACTOR)
+        self._zoom_with_mouse(event, self.MOUSE_ZOOM_FACTOR)
 
     @on(MouseScrollUp)
     def zoom_out(self, event: MouseScrollUp) -> None:
@@ -1332,45 +1334,45 @@ class PlotWidget(Widget, can_focus=True):
             event: The mouse scroll up event.
         """
         event.stop()
-        self._zoom_with_mouse(event, -ZOOM_FACTOR)
+        self._zoom_with_mouse(event, -self.MOUSE_ZOOM_FACTOR)
 
     def action_zoom_in(self) -> None:
-        self._zoom_with_keyboard(3 * ZOOM_FACTOR)
+        self._zoom_with_keyboard(self.KEYBOARD_ZOOM_FACTOR)
 
     def action_zoom_out(self) -> None:
-        self._zoom_with_keyboard(-3 * ZOOM_FACTOR)
+        self._zoom_with_keyboard(-self.KEYBOARD_ZOOM_FACTOR)
 
     def action_zoom_x_in(self) -> None:
         """Zoom in on the x-axis only."""
-        self._zoom_with_keyboard(3 * ZOOM_FACTOR, zoom_x=True, zoom_y=False)
+        self._zoom_with_keyboard(self.KEYBOARD_ZOOM_FACTOR, zoom_x=True, zoom_y=False)
 
     def action_zoom_x_out(self) -> None:
         """Zoom out on the x-axis only."""
-        self._zoom_with_keyboard(-3 * ZOOM_FACTOR, zoom_x=True, zoom_y=False)
+        self._zoom_with_keyboard(-self.KEYBOARD_ZOOM_FACTOR, zoom_x=True, zoom_y=False)
 
     def action_zoom_y_in(self) -> None:
         """Zoom in on the y-axis only."""
-        self._zoom_with_keyboard(3 * ZOOM_FACTOR, zoom_x=False, zoom_y=True)
+        self._zoom_with_keyboard(self.KEYBOARD_ZOOM_FACTOR, zoom_x=False, zoom_y=True)
 
     def action_zoom_y_out(self) -> None:
         """Zoom out on the y-axis only."""
-        self._zoom_with_keyboard(-3 * ZOOM_FACTOR, zoom_x=False, zoom_y=True)
+        self._zoom_with_keyboard(-self.KEYBOARD_ZOOM_FACTOR, zoom_x=False, zoom_y=True)
 
     def action_pan_left(self) -> None:
         """Pan the plot to the left."""
-        self._pan(5, 0)
+        self._pan(self.KEYBOARD_PAN_FACTOR, 0)
 
     def action_pan_right(self) -> None:
         """Pan the plot to the right."""
-        self._pan(-5, 0)
+        self._pan(-self.KEYBOARD_PAN_FACTOR, 0)
 
     def action_pan_up(self) -> None:
         """Pan the plot upward."""
-        self._pan(0, 5)
+        self._pan(0, self.KEYBOARD_PAN_FACTOR)
 
     def action_pan_down(self) -> None:
         """Pan the plot downward."""
-        self._pan(0, -5)
+        self._pan(0, -self.KEYBOARD_PAN_FACTOR)
 
     @on(MouseDown)
     def start_dragging_legend(self, event: MouseDown) -> None:
