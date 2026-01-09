@@ -229,6 +229,10 @@ class PlotWidget(Widget, can_focus=True):
     BINDINGS = [
         ("+", "zoom_in", "Zoom"),
         ("-", "zoom_out", "Zoom"),
+        ("ctrl+equals_sign", "zoom_x_in", "Zoom X"),
+        ("ctrl+minus", "zoom_x_out", "Zoom X"),
+        ("ctrl+shift+equals_sign", "zoom_y_in", "Zoom Y"),
+        ("ctrl+shift+minus", "zoom_y_out", "Zoom Y"),
         ("r", "reset_scales", "Reset scales"),
         ("left", "pan_left", "Pan left"),
         ("right", "pan_right", "Pan right"),
@@ -1261,16 +1265,18 @@ class PlotWidget(Widget, can_focus=True):
             zoom_y = True if widget.id in ("plot", "margin-left") else False
             self._zoom(x, y, factor, zoom_x, zoom_y)
 
-    def _zoom_with_keyboard(self, factor: float) -> None:
+    def _zoom_with_keyboard(self, factor: float, zoom_x: bool = True, zoom_y: bool = True) -> None:
         """Handle zoom operations centered on the plot's center point.
 
         Args:
             factor: The zoom factor to apply (positive for zoom in, negative for
                 zoom out).
+            zoom_x: Whether to zoom in the x direction. Defaults to True.
+            zoom_y: Whether to zoom in the y direction. Defaults to True.
         """
         cx = mean([self._x_min, self._x_max])
         cy = mean([self._y_min, self._y_max])
-        self._zoom(cx, cy, factor, zoom_x=True, zoom_y=True)
+        self._zoom(cx, cy, factor, zoom_x=zoom_x, zoom_y=zoom_y)
 
     def _zoom(
         self,
@@ -1333,6 +1339,22 @@ class PlotWidget(Widget, can_focus=True):
 
     def action_zoom_out(self) -> None:
         self._zoom_with_keyboard(-3 * ZOOM_FACTOR)
+
+    def action_zoom_x_in(self) -> None:
+        """Zoom in on the x-axis only."""
+        self._zoom_with_keyboard(3 * ZOOM_FACTOR, zoom_x=True, zoom_y=False)
+
+    def action_zoom_x_out(self) -> None:
+        """Zoom out on the x-axis only."""
+        self._zoom_with_keyboard(-3 * ZOOM_FACTOR, zoom_x=True, zoom_y=False)
+
+    def action_zoom_y_in(self) -> None:
+        """Zoom in on the y-axis only."""
+        self._zoom_with_keyboard(3 * ZOOM_FACTOR, zoom_x=False, zoom_y=True)
+
+    def action_zoom_y_out(self) -> None:
+        """Zoom out on the y-axis only."""
+        self._zoom_with_keyboard(-3 * ZOOM_FACTOR, zoom_x=False, zoom_y=True)
 
     def action_pan_left(self) -> None:
         """Pan the plot to the left."""
