@@ -16,6 +16,7 @@ from statistics import mean
 from typing import Sequence, TypeAlias
 
 from rich.text import Text
+from textual.binding import Binding
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -224,18 +225,30 @@ class PlotWidget(Widget, can_focus=True):
         }
     """
 
+    ZOOM_GROUP = Binding.Group("Zoom")
+    PAN_GROUP = Binding.Group("Pan")
     BINDINGS = [
-        ("+", "zoom_in", "Zoom"),
-        ("-", "zoom_out", "Zoom"),
-        ("ctrl+equals_sign", "zoom_x_in", "Zoom X"),
-        ("ctrl+minus", "zoom_x_out", "Zoom X"),
-        ("ctrl+shift+equals_sign", "zoom_y_in", "Zoom Y"),
-        ("ctrl+shift+minus", "zoom_y_out", "Zoom Y"),
+        Binding("+", "zoom_in", "Zoom in", group=ZOOM_GROUP),
+        Binding("-", "zoom_out", "Zoom out", group=ZOOM_GROUP),
+        Binding(
+            "ctrl+equals_sign", "zoom_x_in", "Zoom X in", group=ZOOM_GROUP, show=False
+        ),
+        Binding("ctrl+minus", "zoom_x_out", "Zoom X out", group=ZOOM_GROUP, show=False),
+        Binding(
+            "ctrl+shift+equals_sign",
+            "zoom_y_in",
+            "Zoom Y in",
+            group=ZOOM_GROUP,
+            show=False,
+        ),
+        Binding(
+            "ctrl+shift+minus", "zoom_y_out", "Zoom Y out", group=ZOOM_GROUP, show=False
+        ),
+        Binding("left", "pan_left", "Pan left", group=PAN_GROUP),
+        Binding("right", "pan_right", "Pan right", group=PAN_GROUP),
+        Binding("up", "pan_up", "Pan up", group=PAN_GROUP),
+        Binding("down", "pan_down", "Pan down", group=PAN_GROUP),
         ("r", "reset_scales", "Reset scales"),
-        ("left", "pan_left", "Pan left"),
-        ("right", "pan_right", "Pan right"),
-        ("up", "pan_up", "Pan up"),
-        ("down", "pan_down", "Pan down"),
     ]
 
     margin_top = reactive(2)
