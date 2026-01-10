@@ -1634,16 +1634,16 @@ wheels = [
 
 [[package]]
 name = "textual-hires-canvas"
-version = "0.13.0"
+version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "textual" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/59/c0/01b57846233df7870447a644fca02dc12b46e4ea446f81cf6c6a345c83cc/textual_hires_canvas-0.13.0.tar.gz", hash = "sha256:e1753ba808bd0e1d3fff40adb1706576a7ccbe236e86c667622d079d3add9697", size = 1249495, upload-time = "2026-01-06T11:23:16.605Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/20/f0/13f2a30ab7950cc3d5d5a2c893fbe3d40b4d129fd2cd30313260181578c4/textual_hires_canvas-0.14.0.tar.gz", hash = "sha256:0fa512492ddd2cd6c2a970a6beea58f5350f4cf25f40ad14ffd9fa86c6458769", size = 1251440, upload-time = "2026-01-10T22:16:56.708Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/91/4cdb1bbbc8446ab1109fe41ccf81b3abeae59bedecef65ab1829200150c5/textual_hires_canvas-0.13.0-py3-none-any.whl", hash = "sha256:0fa8af1d6d4e298674a08e5fffd4e4a3c2734e738134f53bf73c9cb74410951b", size = 18614, upload-time = "2026-01-06T11:23:17.689Z" },
+    { url = "https://files.pythonhosted.org/packages/85/ea/e7e6d0f749395d61ca2ab8cda2f3c4e6613800b6b0d0b21f9d1d180c4d42/textual_hires_canvas-0.14.0-py3-none-any.whl", hash = "sha256:8cd67d656387220684449e837dd5809b6c00c5dfee8e4b494414b5837cb5a804", size = 19825, upload-time = "2026-01-10T22:16:54.69Z" },
 ]
 
 [[package]]
@@ -1671,7 +1671,7 @@ dev = [
 requires-dist = [
     { name = "numpy", specifier = ">=2.2.1" },
     { name = "textual", specifier = ">=1.0.0" },
-    { name = "textual-hires-canvas", specifier = ">=0.13.0" },
+    { name = "textual-hires-canvas", specifier = ">=0.14.0" },
 ]
 
 [package.metadata.requires-dev]
