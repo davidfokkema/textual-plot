@@ -129,6 +129,49 @@ class NumericAxisFormatter(AxisFormatter):
         return tick_labels
 
 
+class CategoricalAxisFormatter(AxisFormatter):
+    """Formatter for categorical data.
+
+    This formatter maps integer tick values to a list of string categories.
+    """
+
+    def __init__(self, categories: list[str]) -> None:
+        """Initialise the categorical formatter.
+
+        Args:
+            categories: A list of strings, where each string is a category name.
+        """
+        self.categories = categories
+        self.mapping = {i + 1: category for i, category in enumerate(categories)}
+
+    def get_ticks(self, min_: float, max_: float, max_ticks: int = 8) -> list[float]:
+        """Generate tick positions for the categories.
+
+        All parameters are ignored for categorical data, as all categories in
+        range are shown.
+
+        Args:
+            min_: Minimum value of the axis range (ignored).
+            max_: Maximum value of the axis range (ignored).
+            max_ticks: Maximum number of ticks to generate (ignored).
+
+        Returns:
+            A list of tick positions as floats.
+        """
+        return [float(tick) for tick in range(1, len(self.categories) + 1)]
+
+    def get_labels_for_ticks(self, ticks: Sequence[float]) -> list[str]:
+        """Get the category labels for the given integer tick values.
+
+        Args:
+            ticks: A sequence of tick positions (should be integers).
+
+        Returns:
+            A list of category labels.
+        """
+        return [self.mapping.get(round(tick), "") for tick in ticks]
+
+
 class DurationFormatter(AxisFormatter):
     """Formatter for durations (values in seconds) with human-readable units.
 

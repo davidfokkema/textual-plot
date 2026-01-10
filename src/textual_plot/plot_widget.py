@@ -43,7 +43,11 @@ from textual.widget import Widget
 from textual.widgets import Static
 from textual_hires_canvas import Canvas, HiResMode, TextAlign
 
-from textual_plot.axis_formatter import AxisFormatter, NumericAxisFormatter
+from textual_plot.axis_formatter import (
+    AxisFormatter,
+    CategoricalAxisFormatter,
+    NumericAxisFormatter,
+)
 
 __all__ = ["HiResMode", "LegendLocation", "PlotWidget"]
 
@@ -537,7 +541,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def bar(
         self,
-        x: ArrayLike,
+        x: ArrayLike | list[str],
         y: ArrayLike,
         width: float | ArrayLike | None = None,
         bar_style: str | list[str] = "white",
@@ -552,7 +556,8 @@ class PlotWidget(Widget, can_focus=True):
         characters.
 
         Args:
-            x: An ArrayLike with the x-coordinate values for the center of each bar.
+            x: An ArrayLike with the x-coordinate values for the center of each bar,
+                or a list of strings for categorical data.
             y: An ArrayLike with the height values for each bar.
             width: Width of the bars in data coordinates. Can be a single value
                 for all bars, an array of widths for each bar, or None to auto-calculate
@@ -563,13 +568,21 @@ class PlotWidget(Widget, can_focus=True):
                 Defaults to None.
             label: A string with the label for the dataset. Defaults to None.
         """
-        x, y = drop_nans_and_infs(np.array(x), np.array(y))
+        if isinstance(x, list) and x and isinstance(x[0], str):
+            categories = list(x)
+            x_values = np.arange(1, len(categories) + 1)
+            self.set_x_formatter(CategoricalAxisFormatter(categories))
+            self.set_xticks(x_values.tolist())
+        else:
+            x_values = np.array(x)
+
+        x_values, y_values = drop_nans_and_infs(x_values, np.array(y))
 
         # Calculate default width if not provided
         if width is None:
-            if len(x) > 1:
+            if len(x_values) > 1:
                 # Use 80% of the minimum spacing between bars
-                spacings = np.diff(np.sort(x))
+                spacings = np.diff(np.sort(x_values))
                 width = 0.8 * float(np.min(spacings))
             else:
                 # Single bar, use a reasonable default
@@ -578,14 +591,14 @@ class PlotWidget(Widget, can_focus=True):
         # Convert width to array if it's a scalar
         width_array: FloatArray
         if isinstance(width, (int, float, np.number)):
-            width_array = np.full_like(x, width, dtype=float)
+            width_array = np.full_like(x_values, width, dtype=float)
         else:
             width_array = np.array(width, dtype=float)
 
         self._datasets.append(
             BarPlot(
-                x=x,
-                y=y,
+                x=x_values,
+                y=y_values,
                 width=width_array,
                 bar_style=bar_style,
                 hires_mode=hires_mode,
@@ -1218,10 +1231,12 @@ class PlotWidget(Widget, can_focus=True):
             align = TextAlign.CENTER
             # only interested in the x-coordinate, set y to 0.0
             x, _ = self.get_pixel_from_coordinate(tick, 0.0)
-            if tick == self._x_min:
-                x -= 1
-            elif tick == self._x_max:
-                align = TextAlign.RIGHT
+
+            if not isinstance(self._x_formatter, CategoricalAxisFormatter):
+                if tick == self._x_min:
+                    x -= 1
+                elif tick == self._x_max:
+                    align = TextAlign.RIGHT
             for y, quad in [
                 # put ticks at top and bottom of scale rectangle
                 (0, (2, 0, 0, 0)),

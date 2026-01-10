@@ -12,6 +12,7 @@ class BarPlotApp(App[None]):
         x = [1, 2, 3, 4, 5]
         y = [10.2, 8.3, 7.5, 9.1, 9]
         styles = ["red", "blue", "green", "white", "yellow"]
+        x = styles
         plot.bar(
             x,
             y,

@@ -298,9 +298,9 @@ class BarPlot(Container):
         plot = self.query_one(PlotWidget)
         plot.clear()
 
-        x = [1, 2, 3, 4, 5]
         y = [10.2, 8.3, 7.5, 9.1, 9]
         styles = ["red", "blue", "green", "white", "yellow"]
+        x = styles
         plot.bar(
             x,
             y,
@@ -340,6 +340,9 @@ class DemoApp(App[None]):
                 yield ErrorBarPlot()
             with TabPane("Bar plot", id="barplot"):
                 yield BarPlot()
+
+    def on_mount(self) -> None:
+        self.theme = "tokyo-night"
 
 
 def main() -> None:
