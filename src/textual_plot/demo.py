@@ -282,6 +282,40 @@ class ErrorBarPlot(Container):
         self.plot()
 
 
+class BarPlot(Container):
+    BINDINGS = [("h", "cycle_hires_mode", "HiRes")]
+
+    _hires_mode = itertools.cycle([None, HiResMode.BRAILLE])
+    hires_mode = next(_hires_mode)
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self.plot()
+
+    def plot(self) -> None:
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+
+        x = [1, 2, 3, 4, 5]
+        y = [10.2, 8.3, 7.5, 9.1, 9]
+        styles = ["red", "blue", "green", "white", "yellow"]
+        plot.bar(
+            x,
+            y,
+            bar_style=styles,
+            width=0.8,
+            label="Fancy bars",
+            hires_mode=self.hires_mode,
+        )
+        plot.show_legend()
+
+    def action_cycle_hires_mode(self) -> None:
+        self.hires_mode = next(self._hires_mode)
+        self.plot()
+
+
 class DemoApp(App[None]):
     AUTO_FOCUS = "SinePlot > PlotWidget"
 
@@ -304,6 +338,8 @@ class DemoApp(App[None]):
                 yield MultiPlot()
             with TabPane("Errorbars", id="errorbars"):
                 yield ErrorBarPlot()
+            with TabPane("Bar plot", id="barplot"):
+                yield BarPlot()
 
 
 def main() -> None:
