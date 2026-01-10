@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added an axis formatter for durations, autoscaling from seconds to years.
 - Added an error bar plot method with optional high-resolution support.
 - Added full keyboard support for zooming and panning the plot.
-- Added bar plots.
+- Added bar plots, optionally with categorical data.
 
 ### Fixed
 
