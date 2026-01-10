@@ -891,7 +891,7 @@ class PlotWidget(Widget, can_focus=True):
         if self._datasets or self._v_lines:
             xs = []
             ys = []
-            
+
             # Collect x and y values, accounting for bar widths
             for dataset in self._datasets:
                 if isinstance(dataset, BarPlot):
@@ -906,10 +906,10 @@ class PlotWidget(Widget, can_focus=True):
                 else:
                     xs.append(dataset.x)
                     ys.append(dataset.y)
-            
+
             if self._v_lines:
                 xs.append(np.array([vline.x for vline in self._v_lines]))
-            
+
             if self._auto_x_min:
                 non_empty_xs = [x for x in xs if len(x) > 0]
                 if non_empty_xs:
@@ -1166,31 +1166,16 @@ class PlotWidget(Widget, can_focus=True):
 
             if dataset.hires_mode:
                 # Use high-resolution quad rendering (clockwise from bottom-left)
-                x0, y0 = self.get_hires_pixel_from_coordinate(x_left, y_bottom)
-                x1, y1 = self.get_hires_pixel_from_coordinate(x_left, y_top)
-                x2, y2 = self.get_hires_pixel_from_coordinate(x_right, y_top)
-                x3, y3 = self.get_hires_pixel_from_coordinate(x_right, y_bottom)
-
-                canvas.draw_filled_hires_quad(
-                    x0,
-                    y0,
-                    x1,
-                    y1,
-                    x2,
-                    y2,
-                    x3,
-                    y3,
-                    hires_mode=dataset.hires_mode,
-                    style=style,
+                x0, y0 = self.get_hires_pixel_from_coordinate(x_left, y_top)
+                x1, y1 = self.get_hires_pixel_from_coordinate(x_right, y_bottom)
+                canvas.draw_filled_hires_rectangle(
+                    x0, y0, x1, y1, hires_mode=dataset.hires_mode, style=style
                 )
             else:
                 # Use standard quad rendering (clockwise from bottom-left)
-                x0, y0 = self.get_pixel_from_coordinate(x_left, y_bottom)
-                x1, y1 = self.get_pixel_from_coordinate(x_left, y_top)
-                x2, y2 = self.get_pixel_from_coordinate(x_right, y_top)
-                x3, y3 = self.get_pixel_from_coordinate(x_right, y_bottom)
-
-                canvas.draw_filled_quad(x0, y0, x1, y1, x2, y2, x3, y3, style=style)
+                x0, y0 = self.get_pixel_from_coordinate(x_left, y_top)
+                x1, y1 = self.get_pixel_from_coordinate(x_right, y_bottom)
+                canvas.draw_filled_rectangle(x0, y0, x1, y1, style=style)
 
     def _render_v_line_plot(self, vline: VLinePlot) -> None:
         """Render a vertical line on the canvas.
