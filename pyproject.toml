@@ -13,6 +13,12 @@ dependencies = [
     "textual-hires-canvas>=0.14.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/davidfokkema/textual-plot"
+Repository = "https://github.com/davidfokkema/textual-plot.git"
+Issues = "https://github.com/davidfokkema/textual-plot/issues"
+Changelog = "https://github.com/davidfokkema/textual-plot/blob/main/CHANGELOG.md"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
