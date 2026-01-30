@@ -408,6 +408,7 @@ class PlotWidget(Widget, can_focus=True):
         self._labels = []
         self._v_lines = []
         self._v_lines_labels = []
+        self._update_legend()
         self.refresh(layout=True)
 
     def plot(
@@ -443,6 +444,7 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label)
+        self._update_legend()
         self.refresh(layout=True)
 
     def scatter(
@@ -481,6 +483,7 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label)
+        self._update_legend()
         self.refresh(layout=True)
 
     def errorbar(
@@ -537,6 +540,7 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label)
+        self._update_legend()
         self.refresh(layout=True)
 
     def bar(
@@ -605,6 +609,7 @@ class PlotWidget(Widget, can_focus=True):
             )
         )
         self._labels.append(label)
+        self._update_legend()
         self.refresh(layout=True)
 
     def add_v_line(
@@ -619,6 +624,7 @@ class PlotWidget(Widget, can_focus=True):
         """
         self._v_lines.append(VLinePlot(x=x, line_style=line_style))
         self._v_lines_labels.append(label)
+        self._update_legend()
         self.refresh(layout=True)
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
@@ -709,29 +715,36 @@ class PlotWidget(Widget, can_focus=True):
 
     def show_legend(
         self,
-        location: LegendLocation = LegendLocation.TOPRIGHT,
+        location: LegendLocation | None = None,
         is_visible: bool = True,
     ) -> None:
         """Show or hide the legend for the datasets in the plot.
 
         Args:
+            location: An optional `LegendLocation` to specify the corner for the legend.
+                If not provided, the existing location is used.
             is_visible: A boolean indicating whether to show the legend.
                 Defaults to True.
         """
+        if location is not None:
+            if isinstance(location, LegendLocation):
+                self._legend_location = location
+                self._legend_relative_offset = Offset(0, 0)
+            else:
+                raise TypeError(
+                    f"Expected LegendLocation, got {type(location).__name__} instead."
+                )
         self.query_one("#legend", Static).display = is_visible
-        if not is_visible:
+        if is_visible:
+            self._update_legend()
+
+    def _update_legend(self) -> None:
+        """Update the content and position of the plot legend."""
+        legend = self.query_one("#legend", Static)
+        if not legend.display:
             return
 
-        self._position_legend()
-
         legend_lines = []
-        if isinstance(location, LegendLocation):
-            self._legend_location = location
-        else:
-            raise TypeError(
-                f"Expected LegendLocation, got {type(location).__name__} instead."
-            )
-
         for label, dataset in zip(self._labels, self._datasets):
             if label is not None:
                 if isinstance(dataset, LinePlot):
@@ -776,9 +789,8 @@ class PlotWidget(Widget, can_focus=True):
                 text.append(f" {label}")
                 legend_lines.append(text.markup)
 
-        self.query_one("#legend", Static).update(
-            Text.from_markup("\n".join(legend_lines))
-        )
+        legend.update(Text.from_markup("\n".join(legend_lines)))
+        self._position_legend()
 
     def _position_legend(self) -> None:
         """Position the legend in the plot widget using absolute offsets.

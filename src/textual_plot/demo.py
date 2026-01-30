@@ -11,7 +11,12 @@ from textual.containers import Container, Grid
 from textual.widgets import Footer, Header, Label, TabbedContent, TabPane
 from textual_hires_canvas import HiResMode
 
-from textual_plot import DurationFormatter, NumericAxisFormatter, PlotWidget
+from textual_plot import (
+    DurationFormatter,
+    LegendLocation,
+    NumericAxisFormatter,
+    PlotWidget,
+)
 
 
 class SpectrumPlot(Container):
@@ -83,6 +88,9 @@ class SinePlot(Container):
         )
         # Set initial x-axis label
         self._update_x_label()
+        plot = self.query_one(PlotWidget)
+        plot.set_ylimits(0, 20)
+        plot.show_legend(location=LegendLocation.TOPLEFT)
 
     def on_show(self) -> None:
         self._timer.resume()
@@ -140,27 +148,29 @@ class SinePlot(Container):
             y=10 + 10 * np.sin(x + 3),
             line_style="yellow",
             hires_mode=HiResMode.BRAILLE,
+            label="Braille",
         )
         plot.plot(
             x=x_plot,
             y=10 + 10 * np.sin(x + 2),
             line_style="green",
             hires_mode=HiResMode.QUADRANT,
+            label="Quadrant",
         )
         plot.plot(
             x=x_plot,
             y=10 + 10 * np.sin(x + 1),
             line_style="red3",
             hires_mode=HiResMode.HALFBLOCK,
+            label="Halfblock",
         )
         plot.plot(
             x=x_plot,
             y=10 + 10 * np.sin(x),
             line_style="blue",
             hires_mode=None,
+            label="LowRes",
         )
-
-        plot.set_ylimits(0, 20)
         self.N += 1
 
 
