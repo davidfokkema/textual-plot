@@ -307,6 +307,7 @@ class PlotWidget(Widget, can_focus=True):
     _allow_pan_and_zoom: bool = True
     _is_dragging_legend: bool = False
     _needs_rerender: bool = False
+    _needs_canvas_resize: bool = False
 
     def __init__(
         self,
@@ -367,7 +368,7 @@ class PlotWidget(Widget, can_focus=True):
 
     def notify_style_update(self) -> None:
         """Called when styles update (e.g., theme change). Rerender the plot."""
-        self.refresh(layout=True)
+        self._rerender()
 
     def watch_margin_top(self) -> None:
         """React to changes in the top margin reactive attribute."""
@@ -394,7 +395,7 @@ class PlotWidget(Widget, can_focus=True):
         self._v_lines = []
         self._v_lines_labels = []
         self._update_legend()
-        self.refresh(layout=True)
+        self._rerender()
 
     def plot(
         self,
@@ -430,7 +431,7 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._labels.append(label)
         self._update_legend()
-        self.refresh(layout=True)
+        self._rerender()
 
     def scatter(
         self,
@@ -469,7 +470,7 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._labels.append(label)
         self._update_legend()
-        self.refresh(layout=True)
+        self._rerender()
 
     def errorbar(
         self,
@@ -526,7 +527,7 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._labels.append(label)
         self._update_legend()
-        self.refresh(layout=True)
+        self._rerender()
 
     def bar(
         self,
@@ -595,7 +596,7 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._labels.append(label)
         self._update_legend()
-        self.refresh(layout=True)
+        self._rerender()
 
     def add_v_line(
         self, x: float, line_style: str = "white", label: str | None = None
@@ -610,7 +611,7 @@ class PlotWidget(Widget, can_focus=True):
         self._v_lines.append(VLinePlot(x=x, line_style=line_style))
         self._v_lines_labels.append(label)
         self._update_legend()
-        self.refresh(layout=True)
+        self._rerender()
 
     def set_xlimits(self, xmin: float | None = None, xmax: float | None = None) -> None:
         """Set the limits of the x axis.
@@ -627,7 +628,7 @@ class PlotWidget(Widget, can_focus=True):
         self._auto_x_max = xmax is None
         self._x_min = xmin if xmin is not None else 0.0
         self._x_max = xmax if xmax is not None else 1.0
-        self.refresh(layout=True)
+        self._rerender()
 
     def set_ylimits(self, ymin: float | None = None, ymax: float | None = None) -> None:
         """Set the limits of the y axis.
@@ -644,7 +645,7 @@ class PlotWidget(Widget, can_focus=True):
         self._auto_y_max = ymax is None
         self._y_min = ymin if ymin is not None else 0.0
         self._y_max = ymax if ymax is not None else 1.0
-        self.refresh(layout=True)
+        self._rerender()
 
     def set_xlabel(self, label: str) -> None:
         """Set a label for the x axis.
@@ -869,22 +870,17 @@ class PlotWidget(Widget, can_focus=True):
             The widget instance for method chaining.
         """
         if layout is True:
-            for canvas in self.query(Canvas):
-                if size := canvas.size:
-                    self._needs_rerender = True
-                    if size != canvas._canvas_size:
-                        canvas.reset(size=size)
-                    if canvas.id == "plot":
-                        scale_rectangle = Region(
-                            1, 1, canvas.size.width - 2, canvas.size.height - 2
-                        )
-                        if self._scale_rectangle != scale_rectangle:
-                            self._scale_rectangle = scale_rectangle
-                            self._position_legend()
+            self._needs_rerender = True
+            self._needs_canvas_resize = True
 
         return super().refresh(
             *regions, repaint=repaint, layout=layout, recompose=recompose
         )
+
+    def _rerender(self) -> None:
+        """Initiate a new render of the plot."""
+        self._needs_rerender = True
+        self.refresh()
 
     def render(self) -> RenderResult:
         """Render the plot widget.
@@ -893,8 +889,21 @@ class PlotWidget(Widget, can_focus=True):
             An empty string as rendering is done on canvases.
         """
         if self._needs_rerender:
-            self._needs_rerender = False
+            if self._needs_canvas_resize:
+                for canvas in self.query(Canvas):
+                    if size := canvas.size:
+                        if size != canvas._canvas_size:
+                            canvas.reset(size=size)
+                        if canvas.id == "plot":
+                            scale_rectangle = Region(
+                                1, 1, canvas.size.width - 2, canvas.size.height - 2
+                            )
+                            if self._scale_rectangle != scale_rectangle:
+                                self._scale_rectangle = scale_rectangle
+                                self._position_legend()
+                self._needs_canvas_resize = False
             self._render_plot()
+            self._needs_rerender = False
         return ""
 
     def _render_plot(self) -> None:
@@ -1492,7 +1501,7 @@ class PlotWidget(Widget, can_focus=True):
         self.post_message(
             self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
         )
-        self.refresh(layout=True)
+        self._rerender()
 
     @on(MouseScrollDown)
     def zoom_in(self, event: MouseScrollDown) -> None:
@@ -1644,7 +1653,7 @@ class PlotWidget(Widget, can_focus=True):
         self.post_message(
             self.ScaleChanged(self, self._x_min, self._x_max, self._y_min, self._y_max)
         )
-        self.refresh(layout=True)
+        self._rerender()
 
     def action_reset_scales(self) -> None:
         """Reset the plot scales to the user-defined or auto-scaled limits."""
