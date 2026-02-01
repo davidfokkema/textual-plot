@@ -369,21 +369,6 @@ class PlotWidget(Widget, can_focus=True):
         """Called when styles update (e.g., theme change). Rerender the plot."""
         self.refresh(layout=True)
 
-    def _on_canvas_resize(self, event: Canvas.Resize) -> None:
-        """Handle canvas resize events to update the plot scale rectangle.
-
-        Args:
-            event: The canvas resize event containing the new size.
-        """
-        if event.canvas.id == "plot":
-            # The scale rectangle falls just inside the axis rectangle
-            self._scale_rectangle = Region(
-                1, 1, event.size.width - 2, event.size.height - 2
-            )
-        event.canvas.reset(size=event.size)
-        self._position_legend()
-        self.refresh(layout=True)
-
     def watch_margin_top(self) -> None:
         """React to changes in the top margin reactive attribute."""
         self._update_margin_sizes()
@@ -884,7 +869,19 @@ class PlotWidget(Widget, can_focus=True):
             The widget instance for method chaining.
         """
         if layout is True:
-            self._needs_rerender = True
+            for canvas in self.query(Canvas):
+                if size := canvas.size:
+                    self._needs_rerender = True
+                    if size != canvas._canvas_size:
+                        canvas.reset(size=size)
+                    if canvas.id == "plot":
+                        scale_rectangle = Region(
+                            1, 1, canvas.size.width - 2, canvas.size.height - 2
+                        )
+                        if self._scale_rectangle != scale_rectangle:
+                            self._scale_rectangle = scale_rectangle
+                            self._position_legend()
+
         return super().refresh(
             *regions, repaint=repaint, layout=layout, recompose=recompose
         )
@@ -972,10 +969,11 @@ class PlotWidget(Widget, can_focus=True):
 
         # render axis, ticks and labels
         canvas.draw_rectangle_box(
+            # *self._scale_rectangle.corners,
             0,
             0,
-            canvas.size.width - 1,
-            canvas.size.height - 1,
+            self._scale_rectangle.width + 1,
+            self._scale_rectangle.height + 1,
             thickness=2,
             style=str(self.get_component_rich_style("plot--axis")),
         )
