@@ -1974,16 +1974,19 @@ class PlotWidget(Widget, can_focus=True):
             self.query_one("#legend").remove_class("dragged")
             event.stop()
 
-    def _get_treemap_rect_at(self, offset: Offset) -> dict | None:
-        """Return the treemap rect at the given content offset, or None."""
+    def _get_treemap_rect_at(self, event: MouseMove | MouseDown) -> dict | None:
+        """Return the treemap rect at the mouse position, or None."""
         if not self._treemap_hover_rects:
             return None
         try:
             canvas = self.query_one("#plot", Canvas)
         except NoMatches:
             return None
-        cx = offset.x - self.margin_left
-        cy = offset.y - self.margin_top
+        # Use screen offset relative to canvas for accurate hit-testing (avoids
+        # coordinate system mismatch with get_content_offset on nested widgets)
+        canvas_offset = event.screen_offset - self.screen.get_offset(canvas)
+        cx = canvas_offset.x
+        cy = canvas_offset.y
         if (
             not canvas.size
             or cx < 0
@@ -2003,9 +2006,7 @@ class PlotWidget(Widget, can_focus=True):
         """Select treemap rectangle on click to pin info box."""
         if event.button != 1:
             return
-        if (offset := event.get_content_offset(self)) is None:
-            return
-        rect = self._get_treemap_rect_at(offset)
+        rect = self._get_treemap_rect_at(event)
         self._treemap_selected_rect = rect
         self._update_info(rect)
 
@@ -2015,10 +2016,7 @@ class PlotWidget(Widget, can_focus=True):
         if not self._treemap_hover_rects:
             self._update_info(None)
             return
-        if (offset := event.get_content_offset(self)) is None:
-            self._update_info(self._treemap_selected_rect)
-            return
-        rect = self._get_treemap_rect_at(offset)
+        rect = self._get_treemap_rect_at(event)
         # Show hovered rect if any, else show selected rect
         self._update_info(rect if rect is not None else self._treemap_selected_rect)
 
