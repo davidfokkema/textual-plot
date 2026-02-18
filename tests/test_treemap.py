@@ -40,7 +40,42 @@ class TestTreemapPlot:
             aspect_preference=1.5,
             value_display=ValueDisplay.BOTH,
             currency_symbol="$",
+            tree=None,
+            show_nested=False,
         )
         assert len(dataset.values) == 3
         assert dataset.labels == ["A", "B", "C"]
         assert dataset.padding == 1
+
+    def test_treemap_show_nested_dataset_structure(self) -> None:
+        """TreemapPlot with show_nested=True has expected structure for nested rendering."""
+        from textual_plot.treemap_utils import normalize_treemap_tree
+
+        tree_nodes, is_nested = normalize_treemap_tree(
+            [
+                {
+                    "label": "A",
+                    "children": [
+                        {"label": "A1", "value": 10},
+                        {"label": "A2", "value": 20},
+                    ],
+                },
+                {"label": "B", "value": 30},
+            ]
+        )
+        assert is_nested
+        assert len(tree_nodes) == 2
+        dataset = TreemapPlot(
+            values=np.array([30.0, 30.0]),
+            labels=["A", "B"],
+            styles=["red", "blue"],
+            padding=1,
+            hires_mode=None,
+            aspect_preference=1.5,
+            value_display=ValueDisplay.BOTH,
+            currency_symbol="$",
+            tree=tree_nodes,
+            show_nested=True,
+        )
+        assert dataset.tree is not None
+        assert dataset.show_nested is True
