@@ -33,6 +33,7 @@ from textual.app import ComposeResult, RenderResult
 from textual.containers import Grid
 from textual.css.query import NoMatches
 from textual.events import (
+    Click,
     Key,
     MouseDown,
     MouseMove,
@@ -58,6 +59,7 @@ from textual_plot.treemap_utils import (
     format_treemap_nested_path,
     get_path_styles,
     get_treemap_level,
+    get_treemap_node_at_path,
     normalize_treemap_tree,
     squarify_recursive,
     treemap_max_depth,
@@ -333,6 +335,7 @@ class PlotWidget(Widget, can_focus=True):
         Binding("down", "pan_down", "Pan down", group=PAN_GROUP),
         ("r", "reset_scales", "Reset scales"),
         Binding("escape", "treemap_zoom_out", "Treemap zoom out", show=False),
+        ("l", "toggle_legend", "Toggle legend"),
     ]
 
     margin_top = reactive(2)
@@ -373,6 +376,7 @@ class PlotWidget(Widget, can_focus=True):
 
     _allow_pan_and_zoom: bool = True
     _is_dragging_legend: bool = False
+    _legend_visible: bool = False
     _needs_rerender: bool = False
     _needs_canvas_resize: bool = False
 
@@ -900,9 +904,16 @@ class PlotWidget(Widget, can_focus=True):
         ):
             self._legend_location = LegendLocation.LEFT
             self._legend_relative_offset = Offset(0, 0)
+        self._legend_visible = is_visible
         self.query_one("#legend", Static).display = is_visible
         if is_visible:
             self._update_legend()
+
+    def action_toggle_legend(self) -> None:
+        """Toggle legend visibility (collapse/expand)."""
+        self._legend_visible = not self._legend_visible
+        self.show_legend(is_visible=self._legend_visible)
+        self._rerender()
 
     def _update_info(self, rect_info: dict | None) -> None:
         """Update the plot info box with rectangle data or hide it."""
@@ -1703,7 +1714,11 @@ class PlotWidget(Widget, can_focus=True):
     def _render_treemap_nested(
         self, canvas: Canvas, dataset: TreemapPlot, sr: Region
     ) -> None:
-        """Render full nested hierarchy with luminance variance (children darker)."""
+        """Render full nested hierarchy with luminance variance (children darker).
+
+        When _treemap_path is non-empty, renders the subtree at that path as the root
+        (zoom-in view). Double-click a parent to zoom in; Escape to zoom out.
+        """
         pad = max(0, dataset.padding)
         effective_width = max(1, sr.width - 2 * pad)
         effective_height = max(1, sr.height - 2 * pad)
@@ -1711,26 +1726,96 @@ class PlotWidget(Widget, can_focus=True):
         ox = sr.x + pad
         oy = sr.y + pad
 
-        n_top = len(dataset.tree)
-        if isinstance(dataset.styles, list) and len(dataset.styles) >= n_top:
-            base_styles = list(dataset.styles[:n_top])
+        # When zoomed in, use subtree at _treemap_path as root
+        base_path = list(self._treemap_path)
+        if base_path:
+            node = get_treemap_node_at_path(dataset.tree, base_path)
+            if node is None:
+                self._treemap_path.clear()
+                base_path = []
+                tree_to_render = dataset.tree
+            else:
+                tree_to_render = [node]
         else:
-            distinct = distinctipy.get_colors(
-                n_top,
+            tree_to_render = dataset.tree
+
+        # Pre-compute full tree's path_to_style so zoomed view keeps colors consistent
+        n_top_full = len(dataset.tree)
+        if isinstance(dataset.styles, list) and len(dataset.styles) >= n_top_full:
+            base_styles_full = list(dataset.styles[:n_top_full])
+        else:
+            distinct_full = distinctipy.get_colors(
+                n_top_full,
                 pastel_factor=0.2,
                 rng=42,
                 colorblind_type="Deuteranomaly",
             )
-            base_styles = [rgb_style(c) for c in distinct]
+            base_styles_full = [rgb_style(c) for c in distinct_full]
+        layout_w_full = effective_width / aspect
+        extra_rows_full = 3 * max(0, treemap_max_depth(dataset.tree) - 1)
+        layout_h_full = max(1, effective_height - extra_rows_full)
+        full_rect_infos = squarify_recursive(
+            dataset.tree,
+            0,
+            0,
+            layout_w_full,
+            layout_h_full,
+            aspect,
+            [],
+            base_styles_full,
+            [],
+            None,
+        )
+        full_path_to_style = {tuple(r["path"]): r["style"] for r in full_rect_infos}
+
+        n_top = len(tree_to_render)
+        if isinstance(dataset.styles, list) and len(dataset.styles) >= n_top:
+            base_styles = list(dataset.styles[:n_top])
+        else:
+            base_styles = [
+                full_path_to_style.get(tuple(base_path + [i]), base_styles_full[0])
+                for i in range(n_top)
+            ]
+            if not base_styles:
+                distinct = distinctipy.get_colors(
+                    n_top,
+                    pastel_factor=0.2,
+                    rng=42,
+                    colorblind_type="Deuteranomaly",
+                )
+                base_styles = [rgb_style(c) for c in distinct]
 
         layout_w = effective_width / aspect
-        # Reserve vertical space for parent label rows (3 extra per nesting level: 2 top + 1 bottom)
-        extra_rows = 3 * max(0, treemap_max_depth(dataset.tree) - 1)
+        extra_rows = 3 * max(0, treemap_max_depth(tree_to_render) - 1)
         layout_h = max(1, effective_height - extra_rows)
-        rect_infos = squarify_recursive(
-            dataset.tree, 0, 0, layout_w, layout_h, aspect, [], base_styles, []
-        )
-        path_to_style = {tuple(r["path"]): r["style"] for r in rect_infos}
+        if not base_path:
+            rect_infos = full_rect_infos
+            path_to_style = full_path_to_style
+        else:
+            rect_infos = squarify_recursive(
+                tree_to_render,
+                0,
+                0,
+                layout_w,
+                layout_h,
+                aspect,
+                [],
+                base_styles,
+                [],
+                None,
+            )
+
+            # Map zoom-relative paths [0], [0,0], [0,1] to full paths base_path, base_path+[0], ...
+            def _full_path(p: list[int]) -> tuple[int, ...]:
+                if p and p[0] == 0:
+                    return tuple(base_path + p[1:])
+                return tuple(base_path + p)
+
+            for r in rect_infos:
+                fp = _full_path(r["path"])
+                if fp in full_path_to_style:
+                    r["style"] = full_path_to_style[fp]
+            path_to_style = {_full_path(r["path"]): r["style"] for r in rect_infos}
 
         total_value = sum(r["value"] for r in rect_infos)
         hover_rects: list[dict] = []
@@ -1756,6 +1841,10 @@ class PlotWidget(Widget, can_focus=True):
                 y1 = y0 + 1
 
             style = info["style"]
+            if base_path and info["path"] and info["path"][0] == 0:
+                full_path = base_path + info["path"][1:]
+            else:
+                full_path = base_path + info["path"]
             rect_info = {
                 "x0": x0,
                 "y0": y0,
@@ -1769,7 +1858,7 @@ class PlotWidget(Widget, can_focus=True):
                 "currency_symbol": dataset.currency_symbol,
                 "has_children": info.get("has_children", False),
                 "node_index": i,
-                "path": info["path"],
+                "path": full_path,
                 "tree": dataset.tree,
                 "path_to_style": path_to_style,
             }
@@ -2188,30 +2277,38 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._rerender()
 
-    @on(MouseScrollDown)
-    def zoom_in(self, event: MouseScrollDown) -> None:
-        """Zoom into the plot when scrolling down.
-
-        Args:
-            event: The mouse scroll down event.
-        """
-        event.stop()
-        self._zoom_with_mouse(event, self.MOUSE_ZOOM_FACTOR)
-
     @on(MouseScrollUp)
-    def zoom_out(self, event: MouseScrollUp) -> None:
-        """Zoom out of the plot when scrolling up.
+    def zoom_in(self, event: MouseScrollUp) -> None:
+        """Zoom into the plot when scrolling up.
 
         Args:
             event: The mouse scroll up event.
         """
         event.stop()
+        if self._is_treemap_only_nested() and self._handle_treemap_key("plus"):
+            return
+        self._zoom_with_mouse(event, self.MOUSE_ZOOM_FACTOR)
+
+    @on(MouseScrollDown)
+    def zoom_out(self, event: MouseScrollDown) -> None:
+        """Zoom out of the plot when scrolling down.
+
+        Args:
+            event: The mouse scroll down event.
+        """
+        event.stop()
+        if self._is_treemap_only_nested() and self._handle_treemap_key("minus"):
+            return
         self._zoom_with_mouse(event, -self.MOUSE_ZOOM_FACTOR)
 
     def action_zoom_in(self) -> None:
+        if self._is_treemap_only_nested() and self._handle_treemap_key("plus"):
+            return
         self._zoom_with_keyboard(self.KEYBOARD_ZOOM_FACTOR)
 
     def action_zoom_out(self) -> None:
+        if self._is_treemap_only_nested() and self._handle_treemap_key("minus"):
+            return
         self._zoom_with_keyboard(-self.KEYBOARD_ZOOM_FACTOR)
 
     def action_zoom_x_in(self) -> None:
@@ -2283,36 +2380,49 @@ class PlotWidget(Widget, can_focus=True):
             return False
 
         if key == "escape":
-            if self._treemap_path and not self._is_treemap_show_nested():
+            if self._treemap_path:
                 self._treemap_path.pop()
+                level = get_treemap_level(dataset.tree, self._treemap_path)
                 self._treemap_selected_index = min(
                     self._treemap_selected_index or 0,
-                    len(get_treemap_level(dataset.tree, self._treemap_path)) - 1,
+                    len(level) - 1,
                 )
                 self._rerender()
             return True
 
         if key in ("plus", "equal", "+"):
-            if not self._is_treemap_show_nested():
-                idx = (
-                    self._treemap_selected_index
-                    if self._treemap_selected_index is not None
-                    else 0
-                )
-                if self._treemap_hover_rects and idx < len(self._treemap_hover_rects):
-                    rect = self._treemap_hover_rects[idx]
-                    if rect.get("has_children"):
+            idx = (
+                self._treemap_selected_index
+                if self._treemap_selected_index is not None
+                else 0
+            )
+            if self._treemap_hover_rects and idx < len(self._treemap_hover_rects):
+                rect = self._treemap_hover_rects[idx]
+                if rect.get("has_children"):
+                    if self._is_treemap_show_nested():
+                        path = rect.get("path", [])
+                        seg = (
+                            path[len(self._treemap_path)]
+                            if len(path) > len(self._treemap_path)
+                            else None
+                        )
+                        if seg is not None:
+                            self._treemap_path.append(seg)
+                            self._treemap_selected_index = 0
+                            self._rerender()
+                    else:
                         self._treemap_path.append(rect["node_index"])
                         self._treemap_selected_index = 0
                         self._rerender()
             return True
 
         if key in ("minus", "-"):
-            if self._treemap_path and not self._is_treemap_show_nested():
+            if self._treemap_path:
                 self._treemap_path.pop()
+                level = get_treemap_level(dataset.tree, self._treemap_path)
                 self._treemap_selected_index = min(
                     self._treemap_selected_index or 0,
-                    len(get_treemap_level(dataset.tree, self._treemap_path)) - 1,
+                    len(level) - 1,
                 )
                 self._rerender()
             return True
@@ -2348,6 +2458,35 @@ class PlotWidget(Widget, can_focus=True):
         """Zoom out of nested treemap (bound to Escape)."""
         self._handle_treemap_key("escape")
 
+    def treemap_zoom_in(self, path: list[int] | int) -> None:
+        """Zoom into a nested treemap node.
+
+        Args:
+            path: Index or list of indices into the tree. E.g. 0 zooms to first
+                top-level node; [0, 1] zooms to second child of first top-level.
+        """
+        if not self._is_treemap_only_nested():
+            return
+        path_list = [path] if isinstance(path, int) else list(path)
+        if not path_list:
+            return
+        dataset = next(
+            (d for d in self._datasets if isinstance(d, TreemapPlot) and d.tree),
+            None,
+        )
+        if dataset is None:
+            return
+        node = get_treemap_node_at_path(dataset.tree, path_list)
+        if node is None or not node.get("children"):
+            return
+        self._treemap_path = path_list
+        self._treemap_selected_index = 0
+        self._rerender()
+
+    def treemap_zoom_out(self) -> None:
+        """Zoom out one level in nested treemap."""
+        self._handle_treemap_key("escape")
+
     @on(MouseDown)
     def start_dragging_legend(self, event: MouseDown) -> None:
         """Start dragging the legend when clicked with left mouse button.
@@ -2373,7 +2512,7 @@ class PlotWidget(Widget, can_focus=True):
             self.query_one("#legend").remove_class("dragged")
             event.stop()
 
-    def _get_treemap_rect_at(self, event: MouseMove | MouseDown) -> dict | None:
+    def _get_treemap_rect_at(self, event: MouseMove | MouseDown | Click) -> dict | None:
         """Return the treemap rect at the mouse position, or None."""
         if not self._treemap_hover_rects:
             return None
@@ -2400,9 +2539,9 @@ class PlotWidget(Widget, can_focus=True):
                 return rect_info
         return None
 
-    @on(MouseDown)
-    def _handle_treemap_click(self, event: MouseDown) -> None:
-        """Select treemap rectangle on click; zoom in if it has children (non-show_nested only)."""
+    @on(Click)
+    def _handle_treemap_click(self, event: Click) -> None:
+        """Select treemap rectangle on click; zoom in on double-click when rect has children."""
         if event.button != 1:
             return
         rect = self._get_treemap_rect_at(event)
@@ -2410,10 +2549,34 @@ class PlotWidget(Widget, can_focus=True):
             return
         self._treemap_selected_rect = rect
         self._treemap_selected_index = rect.get("node_index", 0)
-        # Zoom in if rect has children (only when not in show_nested full-hierarchy view)
-        if rect.get("has_children") and not self._is_treemap_show_nested():
+
+        # Double-click: zoom in when rect has children
+        if event.chain == 2 and rect.get("has_children"):
+            if self._is_treemap_show_nested():
+                # Append path segment to zoom into this parent
+                path = rect.get("path", [])
+                seg = (
+                    path[len(self._treemap_path)]
+                    if len(path) > len(self._treemap_path)
+                    else None
+                )
+                if seg is not None:
+                    self._treemap_path.append(seg)
+                    self._treemap_selected_index = 0
+            else:
+                # Non-nested: zoom in by index
+                self._treemap_path.append(rect["node_index"])
+                self._treemap_selected_index = 0
+
+        # Single click in non-show_nested: zoom in on parent (legacy behavior)
+        elif (
+            event.chain == 1
+            and rect.get("has_children")
+            and not self._is_treemap_show_nested()
+        ):
             self._treemap_path.append(rect["node_index"])
             self._treemap_selected_index = 0
+
         self._update_info(rect)
         self._rerender()
 

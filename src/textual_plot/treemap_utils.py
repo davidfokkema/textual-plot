@@ -216,12 +216,16 @@ def squarify_recursive(
     path: list[int],
     base_styles: list[str],
     exclude_colors: list[tuple[float, float, float]],
+    path_to_style: dict[tuple[int, ...], str] | None = None,
 ) -> list[dict]:
     """Recursively run squarify on a tree. Returns rect info for parents and leaves.
 
     Parents get distinctipy colors; children get distinctipy (excluding parent) tinted
     with parent's hue. At every nesting level: parents output first (draw underneath);
     children inset by TREEMAP_PARENT_PAD so parent shows as 1-char border.
+
+    When path_to_style is provided, uses those styles for nodes instead of generating
+    new ones (keeps colors consistent when zooming).
     """
     if not nodes or dx <= 0 or dy <= 0:
         return []
@@ -241,42 +245,62 @@ def squarify_recursive(
         rx, ry = rect["x"], rect["y"]
         rdx, rdy = rect["dx"], rect["dy"]
         child_path = path + [i]
-        style = base_styles[i] if i < len(base_styles) else base_styles[0]
+        path_key = tuple(child_path)
+        if path_to_style is not None and path_key in path_to_style:
+            style = path_to_style[path_key]
+        else:
+            style = base_styles[i] if i < len(base_styles) else base_styles[0]
         if node.get("children"):
             parent_rgb = parse_style_to_rgb(style)
             n_children = len(node["children"])
-            child_exclude = (
-                [parent_rgb] + exclude_colors if parent_rgb else list(exclude_colors)
-            )
-            child_exclude.extend(
-                [(1.0, 1.0, 1.0), (0.0, 0.0, 0.0)]
-            )  # always exclude white/black
-            child_colors = distinctipy.get_colors(
-                n_children,
-                exclude_colors=child_exclude,
-                pastel_factor=0.2,
-                rng=42,
-                colorblind_type="Deuteranomaly",
-            )
             child_styles = []
-            current_exclude = list(child_exclude)
-            for c in child_colors:
-                tinted = tint_with_hue(c, parent_rgb) if parent_rgb else c
-                retries = 0
-                while parent_rgb and rgb_too_close(tinted, parent_rgb) and retries < 50:
+            if path_to_style is not None:
+                for j in range(n_children):
+                    child_path_key = tuple(child_path + [j])
+                    if child_path_key in path_to_style:
+                        child_styles.append(path_to_style[child_path_key])
+                    else:
+                        child_styles.append(
+                            base_styles[0] if base_styles else "rgb(128,128,128)"
+                        )
+            else:
+                child_exclude = (
+                    [parent_rgb] + exclude_colors
+                    if parent_rgb
+                    else list(exclude_colors)
+                )
+                child_exclude.extend(
+                    [(1.0, 1.0, 1.0), (0.0, 0.0, 0.0)]
+                )  # always exclude white/black
+                child_colors = distinctipy.get_colors(
+                    n_children,
+                    exclude_colors=child_exclude,
+                    pastel_factor=0.2,
+                    rng=42,
+                    colorblind_type="Deuteranomaly",
+                )
+                current_exclude = list(child_exclude)
+                for c in child_colors:
+                    tinted = tint_with_hue(c, parent_rgb) if parent_rgb else c
+                    retries = 0
+                    while (
+                        parent_rgb
+                        and rgb_too_close(tinted, parent_rgb)
+                        and retries < 50
+                    ):
+                        current_exclude.append(c)
+                        current_exclude.append(tinted)
+                        c = distinctipy.distinct_color(
+                            current_exclude,
+                            pastel_factor=0.2,
+                            rng=42,
+                            colorblind_type="Deuteranomaly",
+                        )
+                        tinted = tint_with_hue(c, parent_rgb)
+                        retries += 1
+                    child_styles.append(rgb_style(tinted))
                     current_exclude.append(c)
                     current_exclude.append(tinted)
-                    c = distinctipy.distinct_color(
-                        current_exclude,
-                        pastel_factor=0.2,
-                        rng=42,
-                        colorblind_type="Deuteranomaly",
-                    )
-                    tinted = tint_with_hue(c, parent_rgb)
-                    retries += 1
-                child_styles.append(rgb_style(tinted))
-                current_exclude.append(c)
-                current_exclude.append(tinted)
             parent_value = sum(n["value"] for n in node["children"])
             out.append(
                 {
@@ -310,6 +334,7 @@ def squarify_recursive(
                 child_path,
                 child_styles,
                 child_exclude_list,
+                path_to_style,
             )
             out.extend(sub)
         else:
