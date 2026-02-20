@@ -426,12 +426,12 @@ class DateTimeFormatter(AxisFormatter):
             elif unit_name == "months":
                 label = dt.strftime("%b %Y")
             elif unit_name == "days":
-                label = dt.strftime("%b %-d, %Y")
+                label = dt.strftime("%b %d, %Y")
             elif unit_name == "hours":
                 # Show date only when it changes
                 current_date = dt.date()
                 if prev_date is None or current_date != prev_date:
-                    label = dt.strftime("%b %-d, %H:%M")
+                    label = dt.strftime("%b %d, %H:%M")
                     prev_date = current_date
                 else:
                     label = dt.strftime("%H:%M")
