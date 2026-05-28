@@ -326,6 +326,117 @@ class BarPlot(Container):
         self.plot()
 
 
+class TreemapPlot(Container):
+    BINDINGS = [("h", "cycle_hires_mode", "HiRes")]
+
+    _hires_mode = itertools.cycle([None, HiResMode.BRAILLE])
+    hires_mode = next(_hires_mode)
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self.plot()
+
+    def plot(self) -> None:
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+
+        values = [500, 433, 280, 195, 165, 120, 95, 78, 62, 48, 35, 28, 25, 18, 12]
+        labels = [
+            "Electronics",
+            "Clothing",
+            "Home",
+            "Sports",
+            "Books",
+            "Toys",
+            "Garden",
+            "Auto",
+            "Health",
+            "Beauty",
+            "Office",
+            "Food",
+            "Pets",
+            "Music",
+            "Art",
+        ]
+        plot.treemap(
+            values,
+            labels=labels,
+            padding=1,
+            hires_mode=self.hires_mode,
+        )
+        plot.show_legend()
+
+    def action_cycle_hires_mode(self) -> None:
+        self.hires_mode = next(self._hires_mode)
+        self.plot()
+
+
+class NestedTreemapPlot(Container):
+    """Nested treemap: click to zoom in, Escape to zoom out, arrows to select."""
+
+    BINDINGS = [("h", "cycle_hires_mode", "HiRes")]
+
+    _hires_mode = itertools.cycle([None, HiResMode.BRAILLE])
+    hires_mode = next(_hires_mode)
+
+    def compose(self) -> ComposeResult:
+        yield PlotWidget()
+
+    def on_mount(self) -> None:
+        self.plot()
+
+    def plot(self) -> None:
+        plot = self.query_one(PlotWidget)
+        plot.clear()
+        # Nested: show_nested=True draws full hierarchy with luminance variance
+        plot.treemap(
+            [
+                {
+                    "label": "Electronics",
+                    "children": [
+                        {
+                            "label": "Phones",
+                            "children": [
+                                {"label": "iPhone", "value": 55},
+                                {"label": "Android", "value": 35},
+                                {"label": "Other", "value": 10},
+                            ],
+                        },
+                        {"label": "Laptops", "value": 50},
+                        {"label": "Tablets", "value": 25},
+                        {"label": "Accessories", "value": 25},
+                    ],
+                },
+                {
+                    "label": "Clothing",
+                    "children": [
+                        {"label": "Shirts", "value": 80},
+                        {"label": "Pants", "value": 60},
+                        {"label": "Shoes", "value": 40},
+                    ],
+                },
+                {
+                    "label": "Home",
+                    "children": [
+                        {"label": "Furniture", "value": 90},
+                        {"label": "Decor", "value": 45},
+                        {"label": "Kitchen", "value": 30},
+                    ],
+                },
+            ],
+            padding=1,
+            hires_mode=self.hires_mode,
+            show_nested=True,
+        )
+        plot.show_legend()
+
+    def action_cycle_hires_mode(self) -> None:
+        self.hires_mode = next(self._hires_mode)
+        self.plot()
+
+
 class DemoApp(App[None]):
     AUTO_FOCUS = "SinePlot > PlotWidget"
 
@@ -350,6 +461,10 @@ class DemoApp(App[None]):
                 yield ErrorBarPlot()
             with TabPane("Bar plot", id="barplot"):
                 yield BarPlot()
+            with TabPane("Treemap", id="treemap"):
+                yield TreemapPlot()
+            with TabPane("Nested Treemap", id="nested_treemap"):
+                yield NestedTreemapPlot()
 
     def on_mount(self) -> None:
         self.theme = "tokyo-night"
