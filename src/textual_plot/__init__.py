@@ -3,7 +3,7 @@ from textual_plot.axis_formatter import (
     DurationFormatter,
     NumericAxisFormatter,
 )
-from textual_plot.plot_widget import HiResMode, LegendLocation, PlotWidget
+from textual_plot.plot_widget import HiResMode, LegendLocation, PlotWidget, ValueDisplay
 
 __all__ = [
     "AxisFormatter",
@@ -12,4 +12,5 @@ __all__ = [
     "LegendLocation",
     "NumericAxisFormatter",
     "PlotWidget",
+    "ValueDisplay",
 ]

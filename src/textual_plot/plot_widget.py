@@ -13,8 +13,10 @@ import sys
 from dataclasses import dataclass
 from math import ceil, floor
 from statistics import mean
-from typing import Sequence, TypeAlias
+from typing import Any, Sequence, TypeAlias
 
+import distinctipy
+import numpy as np
 from rich.text import Text
 from textual.binding import Binding
 
@@ -22,7 +24,8 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:
     from typing_extensions import Self
-import numpy as np
+
+import squarify  # type: ignore[import-untyped]
 from numpy.typing import ArrayLike, NDArray
 from textual import on
 from textual._box_drawing import BOX_CHARACTERS, combine_quads
@@ -30,6 +33,8 @@ from textual.app import ComposeResult, RenderResult
 from textual.containers import Grid
 from textual.css.query import NoMatches
 from textual.events import (
+    Click,
+    Key,
     MouseDown,
     MouseMove,
     MouseScrollDown,
@@ -48,11 +53,25 @@ from textual_plot.axis_formatter import (
     CategoricalAxisFormatter,
     NumericAxisFormatter,
 )
+from textual_plot.color_utils import parse_style_to_rgb, rgb_style
+from textual_plot.treemap_utils import (
+    TREEMAP_PARENT_LABEL_TOP,
+    format_treemap_nested_path,
+    get_path_styles,
+    get_treemap_level,
+    get_treemap_node_at_path,
+    normalize_treemap_tree,
+    squarify_recursive,
+    treemap_max_depth,
+)
 
-__all__ = ["HiResMode", "LegendLocation", "PlotWidget"]
+__all__ = ["HiResMode", "LegendLocation", "PlotWidget", "ValueDisplay"]
 
 FloatScalar: TypeAlias = float | np.floating
 FloatArray: TypeAlias = NDArray[np.floating]
+
+# Nested treemap: each node is {"value": float, "label": str, "children": list | None}
+TreemapNode: TypeAlias = dict[str, Any]
 
 
 LEGEND_LINE = {
@@ -76,6 +95,7 @@ class LegendLocation(enum.Enum):
     TOPRIGHT = enum.auto()
     BOTTOMLEFT = enum.auto()
     BOTTOMRIGHT = enum.auto()
+    LEFT = enum.auto()  # Y-axis label area (left margin); used for treemap default
 
 
 @dataclass
@@ -143,6 +163,46 @@ class BarPlot(DataSet):
     bar_style: str | list[str]
 
 
+class ValueDisplay(enum.Enum):
+    """What to show for treemap rectangle values in labels."""
+
+    VALUE = "value"  # Raw value
+    PERCENT = "percent"  # Percent of total
+    BOTH = "both"  # Value and percent
+    CURRENCY = "currency"  # Currency format (2 decimals, configurable symbol)
+    NONE = "none"  # No value/percent line
+
+
+@dataclass
+class TreemapPlot:
+    """A dataset for rendering as a treemap.
+
+    Attributes:
+        values: Array of numeric values (sizes) for each rectangle.
+        labels: Optional labels for each rectangle (for legend).
+        styles: Rich style string or list of styles for each rectangle.
+        padding: Pixel padding between rectangles and from edges.
+        hires_mode: HiResMode for high-resolution rendering or None.
+        aspect_preference: Bias toward wider (>1) or taller (<1) rectangles.
+        value_display: What to show on the second line of labels.
+        currency_symbol: Symbol for CURRENCY display mode (e.g. "$", "€").
+        tree: Normalized tree structure for nested treemaps (when is_nested).
+        show_nested: When True and tree is nested, draw full hierarchy with
+            luminance variance (children darker) instead of zoom-in/zoom-out.
+    """
+
+    values: FloatArray
+    labels: list[str] | None
+    styles: str | list[str]
+    padding: int
+    hires_mode: HiResMode | None
+    aspect_preference: float
+    value_display: ValueDisplay
+    currency_symbol: str
+    tree: list[TreemapNode] | None = None
+    show_nested: bool = False
+
+
 @dataclass
 class VLinePlot:
     """A vertical line to be drawn on the plot.
@@ -200,7 +260,7 @@ class PlotWidget(Widget, can_focus=True):
 
     DEFAULT_CSS = """
         PlotWidget {
-            layers: plot legend;
+            layers: plot legend info;
 
             &:focus > .plot--axis {
                 color: $primary;
@@ -227,6 +287,14 @@ class PlotWidget(Widget, can_focus=True):
                 #margin-top, #margin-bottom {
                     column-span: 2;
                 }
+            }
+
+            #info {
+              layer: info;
+              width: auto;
+              border-top: solid $secondary;
+              padding: 0 2;
+              display: none;
             }
 
             #legend {
@@ -266,6 +334,8 @@ class PlotWidget(Widget, can_focus=True):
         Binding("up", "pan_up", "Pan up", group=PAN_GROUP),
         Binding("down", "pan_down", "Pan down", group=PAN_GROUP),
         ("r", "reset_scales", "Reset scales"),
+        Binding("escape", "treemap_zoom_out", "Treemap zoom out", show=False),
+        ("l", "toggle_legend", "Toggle legend"),
     ]
 
     margin_top = reactive(2)
@@ -276,7 +346,7 @@ class PlotWidget(Widget, can_focus=True):
     KEYBOARD_ZOOM_FACTOR: float = 0.15
     KEYBOARD_PAN_FACTOR: float = 2.0
 
-    _datasets: list[DataSet]
+    _datasets: list[DataSet | TreemapPlot]
     _labels: list[str | None]
 
     _user_x_min: float | None = None
@@ -306,6 +376,7 @@ class PlotWidget(Widget, can_focus=True):
 
     _allow_pan_and_zoom: bool = True
     _is_dragging_legend: bool = False
+    _legend_visible: bool = False
     _needs_rerender: bool = False
     _needs_canvas_resize: bool = False
 
@@ -341,6 +412,10 @@ class PlotWidget(Widget, can_focus=True):
         self._labels = []
         self._v_lines: list[VLinePlot] = []
         self._v_lines_labels: list[str | None] = []
+        self._treemap_hover_rects: list[dict] = []
+        self._treemap_selected_rect: dict | None = None
+        self._treemap_path: list[int] = []
+        self._treemap_selected_index: int | None = None
         self._allow_pan_and_zoom = allow_pan_and_zoom
         self.invert_mouse_wheel = invert_mouse_wheel
         self._x_formatter = NumericAxisFormatter()
@@ -358,6 +433,7 @@ class PlotWidget(Widget, can_focus=True):
             yield Canvas(1, 1, id="plot")
             yield Canvas(1, 1, id="margin-bottom")
         yield Legend(id="legend")
+        yield Static("", id="info")
 
     def on_mount(self) -> None:
         """Initialize the plot widget when mounted to the DOM."""
@@ -394,6 +470,11 @@ class PlotWidget(Widget, can_focus=True):
         self._labels = []
         self._v_lines = []
         self._v_lines_labels = []
+        self._treemap_hover_rects = []
+        self._treemap_selected_rect = None
+        self._treemap_path = []
+        self._treemap_selected_index = None
+        self._update_info(None)
         self._update_legend()
         self._rerender()
 
@@ -598,6 +679,102 @@ class PlotWidget(Widget, can_focus=True):
         self._update_legend()
         self._rerender()
 
+    def treemap(
+        self,
+        values: ArrayLike,
+        labels: Sequence[str] | None = None,
+        styles: str | Sequence[str] | None = None,
+        padding: int = 1,
+        hires_mode: HiResMode | None = None,
+        label: str | None = None,
+        aspect_preference: float = 1.5,
+        value_display: ValueDisplay | str = ValueDisplay.BOTH,
+        currency_symbol: str = "$",
+        show_nested: bool = False,
+    ) -> None:
+        """Graph data as a treemap.
+
+        Treemaps display hierarchical or flat data as nested rectangles, with
+        each rectangle's area proportional to its value. Uses the squarify
+        algorithm for layout.
+
+        Args:
+            values: An ArrayLike with the numeric values (sizes) for each
+                rectangle. Supports flat lists for single-level treemaps.
+            labels: Optional sequence of labels for each rectangle (for legend).
+                Defaults to None.
+            styles: A style string for all rectangles or a sequence of styles
+                for each. Defaults to a color cycle if None.
+            padding: Pixel padding between rectangles and from edges.
+                Defaults to 1.
+            hires_mode: A HiResMode enum or None for standard rendering.
+                Defaults to None.
+            label: A string with the label for the dataset in the legend.
+                Defaults to None.
+            aspect_preference: Bias toward wider (>1) or taller (<1) rectangles.
+                Values >1 prefer wider rectangles (better for text labels).
+                Defaults to 1.5.
+            value_display: What to show on the second line of labels: "value",
+                "percent", "both", "currency", or "none". Defaults to "both".
+            currency_symbol: Symbol for currency display mode (e.g. "$", "€").
+                Defaults to "$".
+            show_nested: When True and data is nested, draw the full hierarchy
+                at once with luminance variance (children darker) instead of
+                zoom-in/zoom-out. Defaults to False.
+        """
+        vd = (
+            ValueDisplay(value_display)
+            if isinstance(value_display, str)
+            else value_display
+        )
+        tree_nodes, is_nested = normalize_treemap_tree(values, labels)
+        if not tree_nodes:
+            return
+
+        values_array = np.array([n["value"] for n in tree_nodes], dtype=float)
+        labels_list = [n["label"] for n in tree_nodes]
+
+        # Default colors: use distinctipy for perceptually distinct CIELAB-inspired palette
+        n = len(values_array)
+        if styles is None:
+            distinct_colors = distinctipy.get_colors(
+                n,
+                pastel_factor=0.2,
+                rng=42,
+                # colorblind_type="Deuteranomaly",
+            )  # deterministic, slightly pastel for terminal contrast
+            styles_list = [rgb_style(c) for c in distinct_colors]
+        elif isinstance(styles, str):
+            styles_list = [styles] * n
+        else:
+            styles_list = list(styles)
+            if len(styles_list) < n:
+                extra = distinctipy.get_colors(
+                    n - len(styles_list),
+                    pastel_factor=0.2,
+                    rng=42,
+                    # colorblind_type="Deuteranomaly",
+                )
+                styles_list.extend(rgb_style(c) for c in extra)
+
+        self._datasets.append(
+            TreemapPlot(
+                values=values_array,
+                labels=labels_list,
+                styles=styles_list,
+                padding=padding,
+                hires_mode=hires_mode,
+                aspect_preference=aspect_preference,
+                value_display=vd,
+                currency_symbol=currency_symbol,
+                tree=tree_nodes if is_nested else None,
+                show_nested=show_nested and is_nested,
+            )
+        )
+        self._labels.append(label)
+        self._update_legend()
+        self._rerender()
+
     def add_v_line(
         self, x: float, line_style: str = "white", label: str | None = None
     ) -> None:
@@ -720,9 +897,75 @@ class PlotWidget(Widget, can_focus=True):
                 raise TypeError(
                     f"Expected LegendLocation, got {type(location).__name__} instead."
                 )
+        elif (
+            is_visible
+            and self._datasets
+            and all(isinstance(d, TreemapPlot) for d in self._datasets)
+        ):
+            self._legend_location = LegendLocation.LEFT
+            self._legend_relative_offset = Offset(0, 0)
+        self._legend_visible = is_visible
         self.query_one("#legend", Static).display = is_visible
         if is_visible:
             self._update_legend()
+
+    def action_toggle_legend(self) -> None:
+        """Toggle legend visibility (collapse/expand)."""
+        self._legend_visible = not self._legend_visible
+        self.show_legend(is_visible=self._legend_visible)
+        self._rerender()
+
+    def _update_info(self, rect_info: dict | None) -> None:
+        """Update the plot info box with rectangle data or hide it."""
+        try:
+            info_box = self.query_one("#info", Static)
+        except NoMatches:
+            return
+        if rect_info is None:
+            info_box.display = False
+            return
+        total = rect_info["total"]
+        value = rect_info["value"]
+        pct = 100 * value / total if total else 0
+        value_display = rect_info.get("value_display", ValueDisplay.BOTH)
+        currency_symbol = rect_info.get("currency_symbol", "$")
+        if value_display == ValueDisplay.CURRENCY:
+            value_str = f"{currency_symbol}{value:,.2f}"
+        else:
+            value_str = f"{value:,.0f}" if value == int(value) else f"{value:,.1f}"
+        style = rect_info.get("style", "")
+        path = rect_info.get("path")
+        tree = rect_info.get("tree")
+        path_to_style = rect_info.get("path_to_style")
+        if path is not None and tree is not None and len(path) > 0 and path_to_style:
+            segments, _ = format_treemap_nested_path(
+                tree, path, total, value_display, currency_symbol
+            )
+            path_styles = get_path_styles(path, path_to_style)
+            title = Text()
+            for i, (seg_text, _) in enumerate(segments):
+                seg_style = path_styles[i] if i < len(path_styles) else style
+                title.append(" ███ ", style=seg_style)
+                title.append(f" {seg_text}")
+                if i < len(segments) - 1:
+                    title.append("  ▶  ")
+        else:
+            title = Text("███")
+            title.stylize(style)
+            content = (
+                f"{rect_info['label']}  ·  Value: {value_str}  ·  Percent: {pct:.1f}%"
+            )
+            title.append(f" {content}")
+        info_box.update(title)
+        info_box.display = True
+        # Position in margin-bottom (x-axis label) area - unused for treemap
+        canvas = self.query_one("#plot", Canvas)
+        if canvas.size:
+            info_box.offset = Offset(
+                self.margin_left + 1,
+                self.margin_top + canvas.size.height,
+            )
+        info_box.refresh(layout=True)
 
     def _update_legend(self) -> None:
         """Update the content and position of the plot legend."""
@@ -732,6 +975,20 @@ class PlotWidget(Widget, can_focus=True):
 
         legend_lines = []
         for label, dataset in zip(self._labels, self._datasets):
+            # Treemap with per-rectangle labels: show them even if dataset label is None
+            if isinstance(dataset, TreemapPlot) and dataset.labels:
+                rect_styles = (
+                    dataset.styles
+                    if isinstance(dataset.styles, list)
+                    else [dataset.styles] * len(dataset.labels)
+                )
+                for rect_label, rect_style in zip(dataset.labels, rect_styles):
+                    text = Text("███")
+                    text.stylize(rect_style)
+                    text.append(f" {rect_label}")
+                    legend_lines.append(text.markup)
+                continue
+
             if label is not None:
                 if isinstance(dataset, LinePlot):
                     marker = LEGEND_LINE[dataset.hires_mode]
@@ -758,6 +1015,13 @@ class PlotWidget(Widget, can_focus=True):
                         else LEGEND_MARKER[dataset.hires_mode]
                     ).center(3)
                     style = dataset.marker_style
+                elif isinstance(dataset, TreemapPlot):
+                    marker = "███"
+                    style = (
+                        dataset.styles[0]
+                        if isinstance(dataset.styles, list)
+                        else dataset.styles
+                    )
                 else:
                     # unsupported dataset type
                     continue
@@ -830,11 +1094,17 @@ class PlotWidget(Widget, can_focus=True):
         all_labels.extend(
             [label for label in self._v_lines_labels if label is not None]
         )
+        for dataset in self._datasets:
+            if isinstance(dataset, TreemapPlot) and dataset.labels:
+                all_labels.extend(dataset.labels)
 
         # markers and lines in the legend are 3 characters wide, plus a space, so 4
         max_length = 4 + max((len(s) for s in all_labels), default=0)
 
-        if location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
+        if location == LegendLocation.LEFT:
+            x0 = 1
+            y0 = self.margin_top + 1
+        elif location in (LegendLocation.TOPLEFT, LegendLocation.BOTTOMLEFT):
             x0 = self.margin_left + 1
         else:
             # LegendLocation is TOPRIGHT or BOTTOMRIGHT
@@ -842,7 +1112,9 @@ class PlotWidget(Widget, can_focus=True):
             # leave room for the border
             x0 -= legend.styles.border.spacing.left + legend.styles.border.spacing.right
 
-        if location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
+        if location == LegendLocation.LEFT:
+            pass  # y0 already set
+        elif location in (LegendLocation.TOPLEFT, LegendLocation.TOPRIGHT):
             y0 = self.margin_top + 1
         else:
             # LegendLocation is BOTTOMLEFT or BOTTOMRIGHT
@@ -918,13 +1190,20 @@ class PlotWidget(Widget, can_focus=True):
         # clear canvas
         canvas.reset()
 
-        # determine axis limits
-        if self._datasets or self._v_lines:
+        # Clear treemap hover rects; treemap render will repopulate if applicable
+        self._treemap_hover_rects = []
+        self._treemap_selected_rect = None
+        # Preserve _treemap_path and _treemap_selected_index for nested zoom state
+        self._update_info(None)
+
+        # determine axis limits (skip TreemapPlot - it uses pixel coordinates)
+        coord_datasets = [d for d in self._datasets if not isinstance(d, TreemapPlot)]
+        if coord_datasets or self._v_lines:
             xs = []
             ys = []
 
             # Collect x and y values, accounting for bar widths
-            for dataset in self._datasets:
+            for dataset in coord_datasets:
                 if isinstance(dataset, BarPlot):
                     # For bar plots, include the left and right edges
                     x_left = dataset.x - dataset.width / 2
@@ -975,6 +1254,8 @@ class PlotWidget(Widget, can_focus=True):
                 self._render_bar_plot(dataset)
             elif isinstance(dataset, ScatterPlot):
                 self._render_scatter_plot(dataset)
+            elif isinstance(dataset, TreemapPlot):
+                self._render_treemap_plot(dataset)
 
         # render axis, ticks and labels
         canvas.draw_rectangle_box(
@@ -1209,6 +1490,485 @@ class PlotWidget(Widget, can_focus=True):
                 x1, y1 = self.get_pixel_from_coordinate(x_right, y_bottom)
                 canvas.draw_filled_rectangle(x0, y0, x1, y1, style=style)
 
+    def _render_treemap_plot(self, dataset: TreemapPlot) -> None:
+        """Render a treemap dataset on the canvas.
+
+        Uses squarify for layout. Rectangles are drawn in canvas coordinates
+        within the scale rectangle, with optional padding. For nested data,
+        renders the current level based on _treemap_path, or the full hierarchy
+        with luminance variance when show_nested=True.
+        """
+        canvas = self.query_one("#plot", Canvas)
+        sr = self._scale_rectangle
+        if sr.width <= 0 or sr.height <= 0:
+            return
+
+        # Nested full-hierarchy mode: draw all levels with luminance variance
+        if getattr(dataset, "show_nested", False) and dataset.tree is not None:
+            self._render_treemap_nested(canvas, dataset, sr)
+            return
+
+        # Get current level: from tree if nested, else from dataset
+        if dataset.tree is not None:
+            level_nodes = get_treemap_level(dataset.tree, self._treemap_path)
+            if not level_nodes:
+                return
+            values_at_level = np.array([n["value"] for n in level_nodes])
+            labels_at_level = [n["label"] for n in level_nodes]
+            has_children_list = [n.get("children") is not None for n in level_nodes]
+        else:
+            level_nodes = None
+            values_at_level = dataset.values
+            labels_at_level = dataset.labels or [
+                f"Item {i + 1}" for i in range(len(dataset.values))
+            ]
+            has_children_list = [False] * len(values_at_level)
+
+        n = len(values_at_level)
+        if n == 0:
+            return
+
+        pad = max(0, dataset.padding)
+        effective_width = max(1, sr.width - 2 * pad)
+        effective_height = max(1, sr.height - 2 * pad)
+
+        aspect = max(0.25, min(4.0, dataset.aspect_preference))
+        layout_width = effective_width / aspect
+        layout_height = effective_height
+
+        normalized = squarify.normalize_sizes(
+            values_at_level.tolist(), layout_width, layout_height
+        )
+        rects = squarify.squarify(normalized, 0, 0, layout_width, layout_height)
+
+        ox = sr.x + pad
+        oy = sr.y + pad
+
+        # Styles for current level (may differ from dataset.styles when zoomed)
+        if dataset.tree is not None and n != len(dataset.styles):
+            distinct_colors = distinctipy.get_colors(
+                n,
+                pastel_factor=0.2,
+                rng=42,
+                # colorblind_type="Deuteranomaly",
+            )
+            styles_at_level = [rgb_style(c) for c in distinct_colors]
+        else:
+            styles_at_level = (
+                dataset.styles
+                if isinstance(dataset.styles, list)
+                else [dataset.styles] * n
+            )
+            if len(styles_at_level) < n:
+                extra = distinctipy.get_colors(
+                    n - len(styles_at_level),
+                    pastel_factor=0.2,
+                    rng=42,
+                    # colorblind_type="Deuteranomaly",
+                )
+                styles_at_level.extend(rgb_style(c) for c in extra)
+
+        total_value = float(np.sum(values_at_level))
+        hover_rects: list[dict] = []
+
+        selected_idx = self._treemap_selected_index
+        if selected_idx is not None and (selected_idx < 0 or selected_idx >= n):
+            selected_idx = None
+
+        for i, rect in enumerate(rects):
+            style = (
+                styles_at_level[i] if i < len(styles_at_level) else styles_at_level[0]
+            )
+            assert isinstance(style, str)
+
+            # Scale from layout space to actual space
+            rx = rect["x"] * aspect
+            ry = rect["y"]
+            rdx = rect["dx"] * aspect
+            rdy = rect["dy"]
+
+            # Convert to integers - squarify returns floats but canvas expects int pixels
+            x0 = int(ox + rx)
+            y0 = int(oy + ry)
+            x1 = int(x0 + rdx)
+            y1 = int(y0 + rdy)
+
+            # Ensure at least 1px size for visibility
+            if x1 <= x0:
+                x1 = x0 + 1
+            if y1 <= y0:
+                y1 = y0 + 1
+
+            label_str = (
+                labels_at_level[i] if i < len(labels_at_level) else f"Item {i + 1}"
+            )
+            hover_rects.append(
+                {
+                    "x0": x0,
+                    "y0": y0,
+                    "x1": x1,
+                    "y1": y1,
+                    "label": label_str,
+                    "value": float(values_at_level[i]),
+                    "total": total_value,
+                    "style": style,
+                    "value_display": dataset.value_display,
+                    "currency_symbol": dataset.currency_symbol,
+                    "has_children": has_children_list[i]
+                    if i < len(has_children_list)
+                    else False,
+                    "node_index": i,
+                }
+            )
+
+            # Selection fill: hires mode uses solid for selected; otherwise braille
+            if selected_idx == i:
+                if dataset.hires_mode:
+                    canvas.draw_filled_rectangle(x0, y0, x1, y1, style=style)
+                else:
+                    canvas.draw_filled_hires_rectangle(
+                        float(x0),
+                        float(y0),
+                        float(x1),
+                        float(y1),
+                        hires_mode=HiResMode.BRAILLE,
+                        style=style,
+                    )
+            elif dataset.hires_mode:
+                canvas.draw_filled_hires_rectangle(
+                    float(x0),
+                    float(y0),
+                    float(x1),
+                    float(y1),
+                    hires_mode=dataset.hires_mode,
+                    style=style,
+                )
+            else:
+                canvas.draw_filled_rectangle(x0, y0, x1, y1, style=style)
+
+            # Draw label on rectangle if provided and rect is large enough
+            if i < len(labels_at_level):
+                rect_w = x1 - x0
+                rect_h = y1 - y0
+                value = values_at_level[i]
+                pct = 100 * value / total_value if total_value else 0
+                value_str = f"{value:,.0f}" if value == int(value) else f"{value:,.1f}"
+                currency_str = f"{dataset.currency_symbol}{value:,.2f}"
+                pct_str = f"{pct:.1f}%"
+                # Build second line based on value_display
+                if dataset.value_display == ValueDisplay.VALUE:
+                    line2 = value_str
+                elif dataset.value_display == ValueDisplay.PERCENT:
+                    line2 = pct_str
+                elif dataset.value_display == ValueDisplay.BOTH:
+                    line2 = f"{value_str} ({pct_str})"
+                elif dataset.value_display == ValueDisplay.CURRENCY:
+                    line2 = currency_str
+                else:
+                    line2 = None
+                needs_two_lines = line2 is not None and rect_h >= 2
+                if rect_w >= 3 and rect_h >= (2 if needs_two_lines else 1):
+                    label_line1 = labels_at_level[i]
+                    max_len = max(1, rect_w - 2)
+                    if len(label_line1) > max_len:
+                        label_line1 = label_line1[: max_len - 1] + "…"
+                    if needs_two_lines and len(line2) > max_len:
+                        line2 = line2[: max_len - 1] + "…"
+                    cx = (x0 + x1) // 2
+                    cy = (y0 + y1) // 2
+                    bg_rgb = parse_style_to_rgb(style)
+                    if bg_rgb is not None:
+                        text_color = distinctipy.get_text_color(bg_rgb)
+                        fg = "black" if text_color == (0, 0, 0) else "white"
+                    else:
+                        fg = "white"
+                    style_str = (
+                        f"bold {fg} on {style}"
+                        if selected_idx == i
+                        else f"{fg} on {style}"
+                    )
+                    if needs_two_lines:
+                        canvas.write_text(
+                            cx,
+                            cy - 1,
+                            f"[{style_str}]{label_line1}",
+                            align=TextAlign.CENTER,
+                        )
+                        canvas.write_text(
+                            cx, cy, f"[{style_str}]{line2}", align=TextAlign.CENTER
+                        )
+                    else:
+                        canvas.write_text(
+                            cx,
+                            cy,
+                            f"[{style_str}]{label_line1}",
+                            align=TextAlign.CENTER,
+                        )
+
+        self._treemap_hover_rects = hover_rects
+        # Restore selected rect from new hover_rects for info box
+        if selected_idx is not None and selected_idx < len(hover_rects):
+            self._treemap_selected_rect = hover_rects[selected_idx]
+            self._update_info(self._treemap_selected_rect)
+
+    def _render_treemap_nested(
+        self, canvas: Canvas, dataset: TreemapPlot, sr: Region
+    ) -> None:
+        """Render full nested hierarchy with luminance variance (children darker).
+
+        When _treemap_path is non-empty, renders the subtree at that path as the root
+        (zoom-in view). Double-click a parent to zoom in; Escape to zoom out.
+        """
+        pad = max(0, dataset.padding)
+        effective_width = max(1, sr.width - 2 * pad)
+        effective_height = max(1, sr.height - 2 * pad)
+        aspect = max(0.25, min(4.0, dataset.aspect_preference))
+        ox = sr.x + pad
+        oy = sr.y + pad
+
+        # When zoomed in, use subtree at _treemap_path as root
+        base_path = list(self._treemap_path)
+        if base_path:
+            node = get_treemap_node_at_path(dataset.tree, base_path)
+            if node is None:
+                self._treemap_path.clear()
+                base_path = []
+                tree_to_render = dataset.tree
+            else:
+                tree_to_render = [node]
+        else:
+            tree_to_render = dataset.tree
+
+        # Pre-compute full tree's path_to_style so zoomed view keeps colors consistent
+        n_top_full = len(dataset.tree)
+        if isinstance(dataset.styles, list) and len(dataset.styles) >= n_top_full:
+            base_styles_full = list(dataset.styles[:n_top_full])
+        else:
+            distinct_full = distinctipy.get_colors(
+                n_top_full,
+                pastel_factor=0.2,
+                rng=42,
+                colorblind_type="Deuteranomaly",
+            )
+            base_styles_full = [rgb_style(c) for c in distinct_full]
+        layout_w_full = effective_width / aspect
+        extra_rows_full = 3 * max(0, treemap_max_depth(dataset.tree) - 1)
+        layout_h_full = max(1, effective_height - extra_rows_full)
+        full_rect_infos = squarify_recursive(
+            dataset.tree,
+            0,
+            0,
+            layout_w_full,
+            layout_h_full,
+            aspect,
+            [],
+            base_styles_full,
+            [],
+            None,
+        )
+        full_path_to_style = {tuple(r["path"]): r["style"] for r in full_rect_infos}
+
+        n_top = len(tree_to_render)
+        if isinstance(dataset.styles, list) and len(dataset.styles) >= n_top:
+            base_styles = list(dataset.styles[:n_top])
+        else:
+            base_styles = [
+                full_path_to_style.get(tuple(base_path + [i]), base_styles_full[0])
+                for i in range(n_top)
+            ]
+            if not base_styles:
+                distinct = distinctipy.get_colors(
+                    n_top,
+                    pastel_factor=0.2,
+                    rng=42,
+                    colorblind_type="Deuteranomaly",
+                )
+                base_styles = [rgb_style(c) for c in distinct]
+
+        layout_w = effective_width / aspect
+        extra_rows = 3 * max(0, treemap_max_depth(tree_to_render) - 1)
+        layout_h = max(1, effective_height - extra_rows)
+        if not base_path:
+            rect_infos = full_rect_infos
+            path_to_style = full_path_to_style
+        else:
+            rect_infos = squarify_recursive(
+                tree_to_render,
+                0,
+                0,
+                layout_w,
+                layout_h,
+                aspect,
+                [],
+                base_styles,
+                [],
+                None,
+            )
+
+            # Map zoom-relative paths [0], [0,0], [0,1] to full paths base_path, base_path+[0], ...
+            def _full_path(p: list[int]) -> tuple[int, ...]:
+                if p and p[0] == 0:
+                    return tuple(base_path + p[1:])
+                return tuple(base_path + p)
+
+            for r in rect_infos:
+                fp = _full_path(r["path"])
+                if fp in full_path_to_style:
+                    r["style"] = full_path_to_style[fp]
+            path_to_style = {_full_path(r["path"]): r["style"] for r in rect_infos}
+
+        total_value = sum(r["value"] for r in rect_infos)
+        hover_rects: list[dict] = []
+        selected_idx = self._treemap_selected_index
+        if selected_idx is not None and (
+            selected_idx < 0 or selected_idx >= len(rect_infos)
+        ):
+            selected_idx = None
+        if selected_idx is None and rect_infos:
+            selected_idx = 0
+            self._treemap_selected_index = 0
+
+        for i, info in enumerate(rect_infos):
+            rx, ry = info["x"], info["y"]
+            rdx, rdy = info["dx"], info["dy"]
+            x0 = int(ox + rx * aspect)
+            y0 = int(oy + ry)
+            x1 = int(x0 + rdx * aspect)
+            y1 = int(y0 + rdy)
+            if x1 <= x0:
+                x1 = x0 + 1
+            if y1 <= y0:
+                y1 = y0 + 1
+
+            style = info["style"]
+            if base_path and info["path"] and info["path"][0] == 0:
+                full_path = base_path + info["path"][1:]
+            else:
+                full_path = base_path + info["path"]
+            rect_info = {
+                "x0": x0,
+                "y0": y0,
+                "x1": x1,
+                "y1": y1,
+                "label": info["label"],
+                "value": info["value"],
+                "total": total_value,
+                "style": style,
+                "value_display": dataset.value_display,
+                "currency_symbol": dataset.currency_symbol,
+                "has_children": info.get("has_children", False),
+                "node_index": i,
+                "path": full_path,
+                "tree": dataset.tree,
+                "path_to_style": path_to_style,
+            }
+            hover_rects.append(rect_info)
+
+            draw_style = style
+            # Selected rect: hires mode uses solid fill; otherwise use braille for distinction
+            if selected_idx == i:
+                if dataset.hires_mode:
+                    canvas.draw_filled_rectangle(x0, y0, x1, y1, style=draw_style)
+                else:
+                    canvas.draw_filled_hires_rectangle(
+                        float(x0),
+                        float(y0),
+                        float(x1),
+                        float(y1),
+                        hires_mode=HiResMode.BRAILLE,
+                        style=draw_style,
+                    )
+            elif dataset.hires_mode:
+                canvas.draw_filled_hires_rectangle(
+                    float(x0),
+                    float(y0),
+                    float(x1),
+                    float(y1),
+                    hires_mode=dataset.hires_mode,
+                    style=draw_style,
+                )
+            else:
+                canvas.draw_filled_rectangle(x0, y0, x1, y1, style=draw_style)
+
+            rect_w = x1 - x0
+            rect_h = y1 - y0
+            value = info["value"]
+            pct = 100 * value / total_value if total_value else 0
+            value_str = f"{value:,.0f}" if value == int(value) else f"{value:,.1f}"
+            currency_str = f"{dataset.currency_symbol}{value:,.2f}"
+            pct_str = f"{pct:.1f}%"
+            if dataset.value_display == ValueDisplay.VALUE:
+                line2 = value_str
+            elif dataset.value_display == ValueDisplay.PERCENT:
+                line2 = pct_str
+            elif dataset.value_display == ValueDisplay.BOTH:
+                line2 = f"{value_str} ({pct_str})"
+            elif dataset.value_display == ValueDisplay.CURRENCY:
+                line2 = currency_str
+            else:
+                line2 = None
+            needs_two_lines = line2 is not None and rect_h >= 2
+            is_parent = info.get("has_children", False)
+            if rect_w >= 3:
+                cx = (x0 + x1) // 2
+                bg_rgb = parse_style_to_rgb(draw_style)
+                if bg_rgb is not None:
+                    text_color = distinctipy.get_text_color(bg_rgb)
+                    fg = "black" if text_color == (0, 0, 0) else "white"
+                else:
+                    fg = "white"
+                style_str = (
+                    f"bold {fg} on {draw_style}"
+                    if selected_idx == i
+                    else f"{fg} on {draw_style}"
+                )
+                max_len = max(1, rect_w - 2)
+                if is_parent:
+                    # Parent: label only, no values, in center row of top 3
+                    label_line1 = info["label"]
+                    if len(label_line1) > max_len:
+                        label_line1 = label_line1[: max_len - 1] + "…"
+                    cy = y0 + 1  # center of top 3 rows
+                    if rect_h >= TREEMAP_PARENT_LABEL_TOP:
+                        canvas.write_text(
+                            cx,
+                            cy,
+                            f"[{style_str}]{label_line1}",
+                            align=TextAlign.CENTER,
+                        )
+                elif rect_h >= (2 if needs_two_lines else 1):
+                    # Leaf: label and value
+                    label_line1 = info["label"]
+                    if len(label_line1) > max_len:
+                        label_line1 = label_line1[: max_len - 1] + "…"
+                    if needs_two_lines and line2 and len(line2) > max_len:
+                        line2 = line2[: max_len - 1] + "…"
+                    cy = (y0 + y1) // 2
+                    if needs_two_lines and line2:
+                        canvas.write_text(
+                            cx,
+                            cy - 1,
+                            f"[{style_str}]{label_line1}",
+                            align=TextAlign.CENTER,
+                        )
+                        canvas.write_text(
+                            cx, cy, f"[{style_str}]{line2}", align=TextAlign.CENTER
+                        )
+                    else:
+                        canvas.write_text(
+                            cx,
+                            cy,
+                            f"[{style_str}]{label_line1}",
+                            align=TextAlign.CENTER,
+                        )
+
+        self._treemap_hover_rects = hover_rects
+        if selected_idx is not None and selected_idx < len(hover_rects):
+            self._treemap_selected_rect = hover_rects[selected_idx]
+        else:
+            self._treemap_selected_rect = None
+        self._update_info(self._treemap_selected_rect)
+
     def _render_v_line_plot(self, vline: VLinePlot) -> None:
         """Render a vertical line on the canvas.
 
@@ -1232,8 +1992,13 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_x_ticks(self) -> None:
         """Render tick marks and labels for the x-axis."""
-        canvas = self.query_one("#plot", Canvas)
         bottom_margin = self.query_one("#margin-bottom", Canvas)
+        # Hide ticks when plot contains only treemaps (no numeric axes)
+        if self._datasets and all(isinstance(d, TreemapPlot) for d in self._datasets):
+            bottom_margin.reset()
+            return
+
+        canvas = self.query_one("#plot", Canvas)
         bottom_margin.reset()
 
         x_ticks: Sequence[float]
@@ -1277,8 +2042,13 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_y_ticks(self) -> None:
         """Render tick marks and labels for the y-axis."""
-        canvas = self.query_one("#plot", Canvas)
         left_margin = self.query_one("#margin-left", Canvas)
+        # Hide ticks when plot contains only treemaps (no numeric axes)
+        if self._datasets and all(isinstance(d, TreemapPlot) for d in self._datasets):
+            left_margin.reset()
+            return
+
+        canvas = self.query_one("#plot", Canvas)
         left_margin.reset()
 
         y_ticks: Sequence[float]
@@ -1320,6 +2090,8 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_x_label(self) -> None:
         """Render the x-axis label."""
+        if self._datasets and all(isinstance(d, TreemapPlot) for d in self._datasets):
+            return
         canvas = self.query_one("#plot", Canvas)
         margin = self.query_one("#margin-bottom", Canvas)
         margin.write_text(
@@ -1331,6 +2103,8 @@ class PlotWidget(Widget, can_focus=True):
 
     def _render_y_label(self) -> None:
         """Render the y-axis label."""
+        if self._datasets and all(isinstance(d, TreemapPlot) for d in self._datasets):
+            return
         margin = self.query_one("#margin-top", Canvas)
         margin.write_text(
             self.margin_left - 2,
@@ -1503,30 +2277,38 @@ class PlotWidget(Widget, can_focus=True):
         )
         self._rerender()
 
-    @on(MouseScrollDown)
-    def zoom_in(self, event: MouseScrollDown) -> None:
-        """Zoom into the plot when scrolling down.
-
-        Args:
-            event: The mouse scroll down event.
-        """
-        event.stop()
-        self._zoom_with_mouse(event, self.MOUSE_ZOOM_FACTOR)
-
     @on(MouseScrollUp)
-    def zoom_out(self, event: MouseScrollUp) -> None:
-        """Zoom out of the plot when scrolling up.
+    def zoom_in(self, event: MouseScrollUp) -> None:
+        """Zoom into the plot when scrolling up.
 
         Args:
             event: The mouse scroll up event.
         """
         event.stop()
+        if self._is_treemap_only_nested() and self._handle_treemap_key("plus"):
+            return
+        self._zoom_with_mouse(event, self.MOUSE_ZOOM_FACTOR)
+
+    @on(MouseScrollDown)
+    def zoom_out(self, event: MouseScrollDown) -> None:
+        """Zoom out of the plot when scrolling down.
+
+        Args:
+            event: The mouse scroll down event.
+        """
+        event.stop()
+        if self._is_treemap_only_nested() and self._handle_treemap_key("minus"):
+            return
         self._zoom_with_mouse(event, -self.MOUSE_ZOOM_FACTOR)
 
     def action_zoom_in(self) -> None:
+        if self._is_treemap_only_nested() and self._handle_treemap_key("plus"):
+            return
         self._zoom_with_keyboard(self.KEYBOARD_ZOOM_FACTOR)
 
     def action_zoom_out(self) -> None:
+        if self._is_treemap_only_nested() and self._handle_treemap_key("minus"):
+            return
         self._zoom_with_keyboard(-self.KEYBOARD_ZOOM_FACTOR)
 
     def action_zoom_x_in(self) -> None:
@@ -1561,6 +2343,150 @@ class PlotWidget(Widget, can_focus=True):
         """Pan the plot downward."""
         self._pan(0, -self.KEYBOARD_PAN_FACTOR)
 
+    def _is_treemap_only_nested(self) -> bool:
+        """True if plot has only treemap datasets with nested (zoomable) data."""
+        if not self._datasets or not all(
+            isinstance(d, TreemapPlot) for d in self._datasets
+        ):
+            return False
+        return any(
+            d.tree is not None for d in self._datasets if isinstance(d, TreemapPlot)
+        )
+
+    def _is_treemap_show_nested(self) -> bool:
+        """True if plot has a treemap with show_nested=True (full hierarchy view)."""
+        return any(
+            getattr(d, "show_nested", False)
+            for d in self._datasets
+            if isinstance(d, TreemapPlot)
+        )
+
+    def _handle_treemap_key(self, key: str) -> bool:
+        """Handle treemap-specific keys. Returns True if key was handled."""
+        if not self._is_treemap_only_nested():
+            return False
+        dataset = next(
+            (d for d in self._datasets if isinstance(d, TreemapPlot) and d.tree), None
+        )
+        if dataset is None:
+            return False
+
+        # In show_nested mode, use hover_rects count (all leaves); else use level count
+        if self._is_treemap_show_nested() and self._treemap_hover_rects:
+            n = len(self._treemap_hover_rects)
+        else:
+            n = len(get_treemap_level(dataset.tree, self._treemap_path))
+        if n == 0:
+            return False
+
+        if key == "escape":
+            if self._treemap_path:
+                self._treemap_path.pop()
+                level = get_treemap_level(dataset.tree, self._treemap_path)
+                self._treemap_selected_index = min(
+                    self._treemap_selected_index or 0,
+                    len(level) - 1,
+                )
+                self._rerender()
+            return True
+
+        if key in ("plus", "equal", "+"):
+            idx = (
+                self._treemap_selected_index
+                if self._treemap_selected_index is not None
+                else 0
+            )
+            if self._treemap_hover_rects and idx < len(self._treemap_hover_rects):
+                rect = self._treemap_hover_rects[idx]
+                if rect.get("has_children"):
+                    if self._is_treemap_show_nested():
+                        path = rect.get("path", [])
+                        seg = (
+                            path[len(self._treemap_path)]
+                            if len(path) > len(self._treemap_path)
+                            else None
+                        )
+                        if seg is not None:
+                            self._treemap_path.append(seg)
+                            self._treemap_selected_index = 0
+                            self._rerender()
+                    else:
+                        self._treemap_path.append(rect["node_index"])
+                        self._treemap_selected_index = 0
+                        self._rerender()
+            return True
+
+        if key in ("minus", "-"):
+            if self._treemap_path:
+                self._treemap_path.pop()
+                level = get_treemap_level(dataset.tree, self._treemap_path)
+                self._treemap_selected_index = min(
+                    self._treemap_selected_index or 0,
+                    len(level) - 1,
+                )
+                self._rerender()
+            return True
+
+        if key in ("left", "right", "up", "down"):
+            idx = self._treemap_selected_index
+            if idx is None:
+                idx = 0
+            if key == "left":
+                idx = max(0, idx - 1)
+            elif key == "right":
+                idx = min(n - 1, idx + 1)
+            elif key == "up":
+                idx = max(0, idx - 1)
+            elif key == "down":
+                idx = min(n - 1, idx + 1)
+            self._treemap_selected_index = idx
+            if self._treemap_hover_rects and idx < len(self._treemap_hover_rects):
+                self._treemap_selected_rect = self._treemap_hover_rects[idx]
+                self._update_info(self._treemap_selected_rect)
+            self._rerender()
+            return True
+
+        return False
+
+    @on(Key)
+    def _on_key(self, event: Key) -> None:
+        """Handle keys; treemap-specific handling takes precedence when applicable."""
+        if self._handle_treemap_key(event.key):
+            event.stop()
+
+    def action_treemap_zoom_out(self) -> None:
+        """Zoom out of nested treemap (bound to Escape)."""
+        self._handle_treemap_key("escape")
+
+    def treemap_zoom_in(self, path: list[int] | int) -> None:
+        """Zoom into a nested treemap node.
+
+        Args:
+            path: Index or list of indices into the tree. E.g. 0 zooms to first
+                top-level node; [0, 1] zooms to second child of first top-level.
+        """
+        if not self._is_treemap_only_nested():
+            return
+        path_list = [path] if isinstance(path, int) else list(path)
+        if not path_list:
+            return
+        dataset = next(
+            (d for d in self._datasets if isinstance(d, TreemapPlot) and d.tree),
+            None,
+        )
+        if dataset is None:
+            return
+        node = get_treemap_node_at_path(dataset.tree, path_list)
+        if node is None or not node.get("children"):
+            return
+        self._treemap_path = path_list
+        self._treemap_selected_index = 0
+        self._rerender()
+
+    def treemap_zoom_out(self) -> None:
+        """Zoom out one level in nested treemap."""
+        self._handle_treemap_key("escape")
+
     @on(MouseDown)
     def start_dragging_legend(self, event: MouseDown) -> None:
         """Start dragging the legend when clicked with left mouse button.
@@ -1585,6 +2511,87 @@ class PlotWidget(Widget, can_focus=True):
             self._is_dragging_legend = False
             self.query_one("#legend").remove_class("dragged")
             event.stop()
+
+    def _get_treemap_rect_at(self, event: MouseMove | MouseDown | Click) -> dict | None:
+        """Return the treemap rect at the mouse position, or None."""
+        if not self._treemap_hover_rects:
+            return None
+        try:
+            canvas = self.query_one("#plot", Canvas)
+        except NoMatches:
+            return None
+        # Use screen offset relative to canvas for accurate hit-testing (avoids
+        # coordinate system mismatch with get_content_offset on nested widgets)
+        canvas_offset = event.screen_offset - self.screen.get_offset(canvas)
+        cx = canvas_offset.x
+        cy = canvas_offset.y
+        if (
+            not canvas.size
+            or cx < 0
+            or cy < 0
+            or cx >= canvas.size.width
+            or cy >= canvas.size.height
+        ):
+            return None
+        for rect_info in reversed(self._treemap_hover_rects):
+            r = rect_info
+            if r["x0"] <= cx < r["x1"] and r["y0"] <= cy < r["y1"]:
+                return rect_info
+        return None
+
+    @on(Click)
+    def _handle_treemap_click(self, event: Click) -> None:
+        """Select treemap rectangle on click; zoom in on double-click when rect has children."""
+        if event.button != 1:
+            return
+        rect = self._get_treemap_rect_at(event)
+        if rect is None:
+            return
+        self._treemap_selected_rect = rect
+        self._treemap_selected_index = rect.get("node_index", 0)
+
+        # Double-click: zoom in when rect has children
+        if event.chain == 2 and rect.get("has_children"):
+            if self._is_treemap_show_nested():
+                # Append path segment to zoom into this parent
+                path = rect.get("path", [])
+                seg = (
+                    path[len(self._treemap_path)]
+                    if len(path) > len(self._treemap_path)
+                    else None
+                )
+                if seg is not None:
+                    self._treemap_path.append(seg)
+                    self._treemap_selected_index = 0
+            else:
+                # Non-nested: zoom in by index
+                self._treemap_path.append(rect["node_index"])
+                self._treemap_selected_index = 0
+
+        # Single click in non-show_nested: zoom in on parent (legacy behavior)
+        elif (
+            event.chain == 1
+            and rect.get("has_children")
+            and not self._is_treemap_show_nested()
+        ):
+            self._treemap_path.append(rect["node_index"])
+            self._treemap_selected_index = 0
+
+        self._update_info(rect)
+        self._rerender()
+
+    @on(MouseMove)
+    def _handle_treemap_hover(self, event: MouseMove) -> None:
+        """Update treemap info box when hovering over rectangles."""
+        if not self._treemap_hover_rects:
+            self._update_info(None)
+            return
+        # In show_nested mode: only show selected, not hover
+        if self._is_treemap_show_nested():
+            self._update_info(self._treemap_selected_rect)
+            return
+        rect = self._get_treemap_rect_at(event)
+        self._update_info(rect if rect is not None else self._treemap_selected_rect)
 
     @on(MouseMove)
     def drag_with_mouse(self, event: MouseMove) -> None:
