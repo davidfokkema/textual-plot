@@ -1510,6 +1510,8 @@ class PlotWidget(Widget, can_focus=True):
         Args:
             event: The mouse scroll down event.
         """
+        if not self._allow_pan_and_zoom:
+            return
         event.stop()
         self._zoom_with_mouse(event, self.MOUSE_ZOOM_FACTOR)
 
@@ -1520,6 +1522,8 @@ class PlotWidget(Widget, can_focus=True):
         Args:
             event: The mouse scroll up event.
         """
+        if not self._allow_pan_and_zoom:
+            return
         event.stop()
         self._zoom_with_mouse(event, -self.MOUSE_ZOOM_FACTOR)
 
